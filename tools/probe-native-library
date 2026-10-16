@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Check packaged catalog metadata read-only, without opening audio or writing playlists."""
+import argparse
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+parser = argparse.ArgumentParser()
+parser.add_argument("package", type=Path)
+parser.add_argument("data", type=Path)
+args = parser.parse_args()
+with tempfile.TemporaryDirectory(prefix="chilpa-library-rpc-") as temporary:
+    private = Path(temporary)
+    shutil.copyfile(args.data / "account.json", private / "account.json")
+    os.chmod(private / "account.json", 0o600)
+    with (private / "stderr").open("w+") as errors:
+        process = subprocess.Popen([str(args.package.resolve()/"plugin"), "--data-dir", temporary], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors, text=True)
+        counter = 0
+        def call(method, params):
+            global counter
+            counter += 1
+            process.stdin.write(json.dumps({"jsonrpc":"2.0","id":counter,"method":method,"params":params})+"\n")
+            process.stdin.flush()
+            import select
+            if not select.select([process.stdout],[],[],60)[0]:
+                raise RuntimeError("RPC timeout")
+            response=json.loads(process.stdout.readline())
+            if "error" in response:
+                raise RuntimeError("RPC failure for " + method)
+            return response["result"]
+        try:
+            page=call("page.get",{"ref":"artist:46307078"})
+            album=next(item for shelf in page["shelves"] for item in shelf.get("items",[]) if item.get("kind")=="album")
+            record=call("album.get",{"ref":album["ref"]})
+            tracks=record["tracks"]
+            qualities=[call("track.quality",{"ref":track["ref"]})["quality"] for track in tracks[:2]]
+            assert all(q["codec"] and q["bits"] and q["rate"] for q in qualities)
+            library=call("library.list",{"kind":"playlists","limit":500})
+            assert isinstance(library["folders"],list)
+            print(json.dumps({"artist_opened":True,"artist_portrait":bool(page["header"].get("image")),"album_tracks":len(tracks),"quality_before_playback":qualities,"native_folders":len(library["folders"]),"playlists":len(library["items"])}))
+        finally:
+            process.stdin.close()
+            try: process.wait(timeout=10)
+            except subprocess.TimeoutExpired: process.terminate(); process.wait(timeout=10)
+            print(json.dumps({"exit":process.returncode,"stderr_bytes":errors.tell()}))

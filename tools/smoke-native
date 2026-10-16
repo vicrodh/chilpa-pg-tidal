@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""Run the installed-process contract in an isolated profile and native sandbox."""
+import argparse
+import json
+import os
+from pathlib import Path
+import selectors
+import subprocess
+import tempfile
+import time
+
+parser = argparse.ArgumentParser()
+parser.add_argument("package", type=Path)
+parser.add_argument("--direct", action="store_true", help="Run without the Linux sandbox in a temporary data directory")
+args = parser.parse_args()
+folder = args.package.resolve()
+with tempfile.TemporaryDirectory(prefix="chilpa-tidal-smoke-") as temporary:
+    data, cache = Path(temporary)/"data", Path(temporary)/"cache"
+    data.mkdir()
+    cache.mkdir()
+    if args.direct:
+        command = [str(folder / "plugin"), "--data-dir", str(data)]
+    else:
+        command = ["/usr/bin/bwrap", "--unshare-all", "--share-net", "--die-with-parent", "--new-session", "--cap-drop", "ALL",
+            "--ro-bind", "/usr", "/usr", "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64", "--symlink", "usr/bin", "/bin",
+            "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp"]
+        for shared in ["/etc/ssl", "/etc/ca-certificates", "/etc/pki", "/etc/resolv.conf", "/etc/hosts", "/etc/nsswitch.conf", "/etc/ld.so.cache", "/etc/ld.so.conf", "/etc/ld.so.conf.d"]:
+            command += ["--ro-bind-try", shared, shared]
+        command += ["--ro-bind", str(folder), "/plugin", "--bind", str(data), "/data", "--bind", str(cache), "/cache",
+            "--chdir", "/data", "--clearenv", "--setenv", "PATH", "/usr/bin", "--setenv", "HOME", "/data", "--setenv", "XDG_CACHE_HOME", "/cache",
+            "--", "/usr/bin/prlimit", "--as=2147483648", "--nofile=256", "--core=0", "--", "/plugin/plugin"]
+    started = time.monotonic()
+    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env={})
+    selector = selectors.DefaultSelector()
+    selector.register(process.stdout, selectors.EVENT_READ)
+    serial = 0
+    def call(method, params=None):
+        global serial
+        serial += 1
+        process.stdin.write(json.dumps({"jsonrpc": "2.0", "id": serial, "method": method, "params": params or {}})+"\n")
+        process.stdin.flush()
+        if not selector.select(20):
+            raise AssertionError("Plugin did not answer in time")
+        line = process.stdout.readline()
+        if not line:
+            raise AssertionError("Plugin ended: " + process.stderr.read(2000))
+        answer = json.loads(line)
+        assert answer["id"] == serial
+        return answer
+    try:
+        initialized = call("initialize", {"locale": "es", "playback_events": 1})["result"]
+        latency = time.monotonic()-started
+        assert initialized["capabilities"]["pages"] and initialized["capabilities"]["playlist_edit"]
+        assert not call("auth.status")["result"]["signed_in"]
+        form = call("settings.open")["result"]
+        assert form["form"]["actions"][0]["label"] == "Entrar"
+        form = call("settings.submit", {"revision": form["revision"], "action": "sign_in"})["result"]
+        assert form["form"]["fields"][0]["control"]["type"] == "secret"
+        assert form["links"][0]["url"].startswith("https://login.tidal.com/")
+        form = call("settings.submit", {"revision": form["revision"], "action": "cancel"})["result"]
+        assert not form["values"]
+        assert call("search", {"text": "fixture"})["error"]["code"] == -32001
+        assert call("reporting.status")["result"]["upstream_supported"]
+        assert call("reporting.status")["result"]["pending"] == 0
+        process.stdin.close()
+        assert process.wait(timeout=10) == 0
+        assert not process.stderr.read(), "Native process wrote unexpected diagnostics"
+        mode = "Direct process" if args.direct else "Native sandbox"
+        print(f"{mode} smoke passed; initialization {latency:.3f}s; no account, browser or audio used.")
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
