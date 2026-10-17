@@ -73,6 +73,35 @@ for distribution in importlib.metadata.distributions():
                 shutil.copy2(path, licenses / (name + "-" + path.name))
 requirements = subprocess.check_output([sys.executable, "-m", "pip", "freeze"], text=True)
 (target / "dependencies.txt").write_text(requirements)
+# I carry the interpreter license alongside the bundled runtime.
+python_license = pathlib.Path(sys.base_prefix) / "lib" / ("python" + str(sys.version_info.major) + "." + str(sys.version_info.minor)) / "LICENSE.txt"
+if python_license.is_file():
+    shutil.copy2(python_license, licenses / "Python-LICENSE.txt")
+
+# Standalone interpreter distributions supply their transitive runtime notices.
+python_notices = os.environ.get("CHILPA_PYTHON_NOTICES")
+if python_notices:
+    notices = pathlib.Path(python_notices).resolve(strict=True)
+    destination = licenses / "python-runtime"
+    destination.mkdir()
+    for notice in sorted(notices.glob("LICENSE.*.txt")):
+        shutil.copy2(notice, destination / notice.name)
+    if (notices / "PYTHON.json").is_file():
+        shutil.copy2(notices / "PYTHON.json", destination / "PYTHON.json")
+
+# I remove local symbols before signing so the runtime meets the host file limit.
+if sys.platform == "darwin":
+    for path in sorted(target.rglob("*")):
+        if not path.is_file() or path.is_symlink() or path == target / executable:
+            continue
+        with path.open("rb") as stream:
+            magic = stream.read(4)
+        if magic not in (bytes.fromhex("cffaedfe"), bytes.fromhex("cafebabe"), bytes.fromhex("cafebabf")):
+            continue
+        subprocess.run(["strip", "-S", "-x", str(path)], check=True)
+        subprocess.run(["codesign", "--force", "--sign", "-", str(path)], check=True)
+        subprocess.run(["codesign", "--verify", "--strict", str(path)], check=True)
+
 archive = target.parent / (target.name + ".zip")
 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as package:
     for path in sorted(target.rglob("*")):

@@ -1,13 +1,16 @@
 # Tidal for Chilpa
 
 I publish this third-party plugin as [vicrodh](https://github.com/vicrodh).
-It is independent of Tidal and separate from Chilpa's official plugin catalog.
+It is independent of Tidal. Chilpa's official catalog also lists it as a
+third-party plugin validated by Chilpa.
 The source and release downloads live in
 [chilpa-pg-tidal](https://github.com/vicrodh/chilpa-pg-tidal).
 
 ## Install
 
-I publish Linux x86_64 packages for Chilpa 0.1.0-beta. I add this catalog URL
+I publish Linux x86_64 and macOS Apple Silicon packages for Chilpa 0.1.0-beta.
+The macOS package requires the updated Chilpa host with its native worker
+sandbox; earlier macOS builds cannot launch process plugins. I add this catalog URL
 in Settings > Plugins to install Tidal alongside the official plugins:
 
 ```text
@@ -93,9 +96,9 @@ I create a virtual environment, install `requirements-dev.txt`, then run
 architecture. I set `CHILPA_FLAC_LIBRARY` to the absolute path of that target's
 libFLAC shared library if the script cannot find it. The build bundles libFLAC
 and its linked libraries; the listener does not install development dependencies.
-The package contains `plugin.exe` on Windows or `plugin` on Unix. macOS and
-Windows packages require matching Chilpa process-plugin sandbox and installer
-support before they can be installed and run.
+The package contains `plugin.exe` on Windows or `plugin` on Unix. The macOS
+package runs inside Chilpa's Seatbelt worker sandbox. Windows process hosting
+is not implemented.
 
 I run `PYTHONPATH=src python -m unittest discover -s tests -v` for the fixture suite.
 The process accepts `--data-dir PATH` for an isolated test profile. Without
@@ -104,3 +107,25 @@ Linux sandbox.
 On macOS I run `python tools/smoke-native dist/<version>-aarch64-apple-darwin --direct`
 to check the packaged JSON-RPC process with temporary data. Direct mode does
 not validate a Chilpa host sandbox.
+
+### macOS Apple Silicon
+
+I build the Mac package with portable CPython 3.13.16 from
+[python-build-standalone 20261013](https://github.com/astral-sh/python-build-standalone/releases/tag/20261013)
+and the locked dependencies. I set `CHILPA_PYTHON_NOTICES` to the license
+directory from the matching full interpreter archive, including its
+`PYTHON.json`, so the transitive runtime notices travel with the ZIP. I compile libFLAC 1.5.0 from its official source
+with `MACOSX_DEPLOYMENT_TARGET=14.0`, `--disable-ogg`, `--disable-programs`,
+`--disable-examples`, `--disable-cpplibs`, `--disable-static` and
+`--enable-shared`. I point `CHILPA_FLAC_LIBRARY` at that private build and
+run `tools/build-native` with the portable Python virtual environment.
+
+I strip local symbols from bundled libraries and sign each modified binary
+before packaging. I preserve the PyInstaller executable's appended archive.
+The ZIP contains Python's license and its runtime; it needs neither Homebrew
+nor a separately installed Python. I inspect every Mach-O dependency,
+architecture, minimum OS and signature. I test the exact ZIP through the
+updated host's installer and permission review on macOS, without a live
+account or physical audio device. Signed-in playback remains a listening
+check. The Mac runtime source remains the `v0.1.18` tag; the build tool on
+`main` adds the Mac library stripping and interpreter license packaging.
