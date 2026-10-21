@@ -1,0 +1,30 @@
+[
+  {
+    "file": "whole-44100-16.flac",
+    "rate": 44100,
+    "bits": 16,
+    "frames": 26460,
+    "pcm_sha256": "39e92a95df22449b575ca522b1d8c35152b4a598654559311c8e7706e4601401"
+  },
+  {
+    "file": "middle-44100-16.flac",
+    "rate": 44100,
+    "bits": 16,
+    "frames": 14172,
+    "pcm_sha256": "129cfc478699a19b35b2bab3d23be7eb37db645330bfe6783fbd9cd6644ff4a8"
+  },
+  {
+    "file": "whole-96000-24.flac",
+    "rate": 96000,
+    "bits": 24,
+    "frames": 28800,
+    "pcm_sha256": "252f74f8f6d1d79ce9beef9f1808cecedcc24ddc1b3df913f3c1dda3b8589205"
+  },
+  {
+    "file": "middle-96000-24.flac",
+    "rate": 96000,
+    "bits": 24,
+    "frames": 12416,
+    "pcm_sha256": "d48aa59a0bfdc55ce72a2eea0c3d02ea7c7d42a62bf58f3a61a93567078a157f"
+  }
+]

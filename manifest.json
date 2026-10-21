@@ -1,11 +1,11 @@
 {
   "id": "app.chilpa.tidal",
   "name": "Tidal",
-  "version": "0.1.18",
+  "version": "0.2.0",
   "api_version": 1,
   "kind": "source",
   "runtime": "process",
-  "description": "Your Tidal library, discovery, mixes and playlists inside Chilpa. Requires a Tidal subscription. Sign in in your browser; account tokens stay in this plugin's private data. Streaming is buffered temporarily, without an offline music library.",
+  "description": "Your Tidal library, discovery, mixes and playlists inside Chilpa. Requires a Tidal subscription. Sign in in your browser, or with a code on link.tidal.com; account tokens stay in this plugin's private data. Streaming is buffered temporarily, without an offline music library.",
   "icon": "icon.svg",
   "capabilities": [
     {

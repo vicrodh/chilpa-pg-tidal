@@ -1,0 +1,650 @@
+{
+ "1. Select Open Tidal sign-in, sign in and approve access. If Chilpa opens Tidal in a window of its own, the sign-in finishes there and nothing else is needed.": {
+  "es": "1. Selecciona Abrir Tidal, inicia sesión y autoriza el acceso. Si Chilpa abre Tidal en una ventana propia, el acceso termina ahí y no hace falta nada más.",
+  "de": "1. Wähle „Tidal-Anmeldung öffnen“, melde dich an und genehmige den Zugriff. Wenn Chilpa Tidal in einem eigenen Fenster öffnet, wird die Anmeldung dort abgeschlossen und es ist nichts weiter nötig.",
+  "fr": "1. Sélectionnez Ouvrir la connexion Tidal, connectez-vous et autorisez l'accès. Si Chilpa ouvre Tidal dans sa propre fenêtre, la connexion s'y termine et rien d'autre n'est nécessaire.",
+  "pt": "1. Selecione Abrir login do Tidal, entre e aprove o acesso. Se o Chilpa abrir o Tidal em uma janela própria, o login termina ali e nada mais é necessário.",
+  "ru": "1. Нажмите «Открыть вход в Tidal», войдите и одобрите доступ. Если Chilpa открывает Tidal в собственном окне, вход завершается там, и больше ничего делать не нужно.",
+  "ja": "1. 「Tidalログインを開く」を選択し、ログインしてアクセスを承認してください。ChilpaがTidalを専用のウィンドウで開いた場合は、そこでログインが完了するため、ほかの操作は必要ありません。",
+  "nl": "1. Selecteer ‘Inloggen bij Tidal’, log in en keur de toegang goed. Als Chilpa Tidal in een eigen venster opent, wordt het inloggen daar afgerond en is er verder niets nodig."
+ },
+ "1. Select Open link.tidal.com. The code {code} is already filled in; if Tidal asks for it, type it.": {
+  "es": "1. Selecciona Abrir link.tidal.com. El código {code} ya va incluido; si Tidal te lo pide, escríbelo.",
+  "de": "1. Wähle „link.tidal.com öffnen“. Der Code {code} ist bereits eingetragen; falls Tidal danach fragt, gib ihn ein.",
+  "fr": "1. Sélectionnez Ouvrir link.tidal.com. Le code {code} est déjà renseigné ; si Tidal le demande, saisissez-le.",
+  "pt": "1. Selecione Abrir link.tidal.com. O código {code} já vem preenchido; se o Tidal pedir, digite-o.",
+  "ru": "1. Нажмите «Открыть link.tidal.com». Код {code} уже подставлен; если Tidal его запросит, введите его вручную.",
+  "ja": "1. 「link.tidal.comを開く」を選択してください。コード{code}はすでに入力されています。Tidalから求められた場合は入力してください。",
+  "nl": "1. Selecteer ‘link.tidal.com openen’. De code {code} is al ingevuld; als Tidal erom vraagt, typ je hem in."
+ },
+ "2. If it opens in your browser, Tidal ends on a page that may say Oops or stay blank. That is expected: the address of that page carries the sign-in code.": {
+  "es": "2. Si se abre en tu navegador, Tidal termina en una página que puede decir Oops o quedarse en blanco. Así debe ser: la dirección de esa página trae el código de acceso.",
+  "de": "2. Wenn sich Tidal in deinem Browser öffnet, endet die Anmeldung auf einer Seite, die „Oops“ anzeigen oder leer bleiben kann. Das ist normal: Die Adresse dieser Seite enthält den Anmeldecode.",
+  "fr": "2. Si Tidal s'ouvre dans votre navigateur, la connexion se termine sur une page qui peut afficher Oops ou rester vide. C'est normal : l'adresse de cette page contient le code de connexion.",
+  "pt": "2. Se o login abrir no seu navegador, o Tidal termina em uma página que pode dizer Oops ou ficar em branco. Isso é esperado: o endereço dessa página contém o código de login.",
+  "ru": "2. Если Tidal открылся в браузере, в конце он может показать страницу с надписью «Oops» или пустую страницу. Так и должно быть: в адресе этой страницы содержится код входа.",
+  "ja": "2. ブラウザーで開いた場合、Tidalは「Oops」と表示されるか空白のままのページで終わることがあります。これは想定どおりです。そのページのアドレスにログインコードが含まれています。",
+  "nl": "2. Als het in je browser opent, eindigt Tidal op een pagina die ‘Oops’ kan tonen of leeg kan blijven. Dat is normaal: het adres van die pagina bevat de inlogcode."
+ },
+ "2. Sign in and approve access.": {
+  "es": "2. Inicia sesión y autoriza el acceso.",
+  "de": "2. Melde dich an und genehmige den Zugriff.",
+  "fr": "2. Connectez-vous et autorisez l'accès.",
+  "pt": "2. Entre e aprove o acesso.",
+  "ru": "2. Войдите и одобрите доступ.",
+  "ja": "2. ログインしてアクセスを承認してください。",
+  "nl": "2. Log in en keur de toegang goed."
+ },
+ "3. Come back here and select Check sign-in.": {
+  "es": "3. Regresa aquí y selecciona Comprobar acceso.",
+  "de": "3. Komm hierher zurück und wähle „Anmeldung prüfen“.",
+  "fr": "3. Revenez ici et sélectionnez Vérifier la connexion.",
+  "pt": "3. Volte aqui e selecione Verificar login.",
+  "ru": "3. Вернитесь сюда и нажмите «Проверить вход».",
+  "ja": "3. ここに戻り、「ログインを確認」を選択してください。",
+  "nl": "3. Kom hier terug en selecteer ‘Inloggen controleren’."
+ },
+ "3. Copy the whole address of that page from the browser's address bar (click it, then Ctrl+A and Ctrl+C), paste it below and select Finish sign-in.": {
+  "es": "3. Copia la dirección completa de esa página desde la barra del navegador (haz clic en ella, luego Ctrl+A y Ctrl+C), pégala abajo y selecciona Terminar.",
+  "de": "3. Kopiere die vollständige Adresse dieser Seite aus der Adressleiste des Browsers (klicke hinein, drücke dann Ctrl+A und Ctrl+C), füge sie unten ein und wähle „Anmeldung abschließen“.",
+  "fr": "3. Copiez l'adresse complète de cette page depuis la barre d'adresse du navigateur (cliquez dessus, puis Ctrl+A et Ctrl+C), collez-la ci-dessous et sélectionnez Terminer la connexion.",
+  "pt": "3. Copie o endereço completo dessa página da barra de endereços do navegador (clique nela e use Ctrl+A e Ctrl+C), cole abaixo e selecione Concluir login.",
+  "ru": "3. Скопируйте адрес этой страницы целиком из адресной строки браузера (щёлкните по ней, затем нажмите Ctrl+A и Ctrl+C), вставьте его ниже и нажмите «Завершить вход».",
+  "ja": "3. そのページのアドレス全体をブラウザーのアドレスバーからコピーし（クリックしてからCtrl+A、Ctrl+Cを押します）、下に貼り付けて「ログインを完了」を選択してください。",
+  "nl": "3. Kopieer het volledige adres van die pagina uit de adresbalk van de browser (klik erop en druk dan op Ctrl+A en Ctrl+C), plak het hieronder en selecteer ‘Inloggen voltooien’."
+ },
+ "A Tidal subscription is required for full playback. Your password stays in the browser.": {
+  "es": "La reproducción completa requiere una suscripción a Tidal. Tu contraseña se queda en el navegador.",
+  "de": "Für die vollständige Wiedergabe ist ein Tidal-Abo erforderlich. Dein Passwort bleibt im Browser.",
+  "fr": "Un abonnement Tidal est nécessaire pour la lecture complète. Votre mot de passe reste dans le navigateur.",
+  "pt": "É necessária uma assinatura do Tidal para a reprodução completa. Sua senha fica no navegador.",
+  "ru": "Для полного воспроизведения нужна подписка на Tidal. Ваш пароль остаётся в браузере.",
+  "ja": "フル再生にはTidalのサブスクリプションが必要です。パスワードはブラウザー内にとどまります。",
+  "nl": "Voor volledig afspelen is een Tidal-abonnement nodig. Je wachtwoord blijft in de browser."
+ },
+ "Address of the page Tidal shows at the end": {
+  "es": "Dirección de la página que Tidal muestra al final",
+  "de": "Adresse der Seite, die Tidal am Ende anzeigt",
+  "fr": "Adresse de la page que Tidal affiche à la fin",
+  "pt": "Endereço da página que o Tidal mostra no final",
+  "ru": "Адрес страницы, которую Tidal показывает в конце",
+  "ja": "最後にTidalが表示するページのアドレス",
+  "nl": "Adres van de pagina die Tidal aan het einde toont"
+ },
+ "Albums": {
+  "es": "Álbumes",
+  "de": "Alben",
+  "fr": "Albums",
+  "pt": "Álbuns",
+  "ru": "Альбомы",
+  "ja": "アルバム",
+  "nl": "Albums"
+ },
+ "Appears": {
+  "es": "Aparece en",
+  "de": "Erscheint auf",
+  "fr": "Apparaît sur",
+  "pt": "Participações",
+  "ru": "Участие в релизах",
+  "ja": "参加作品",
+  "nl": "Te horen op"
+ },
+ "Appears on": {
+  "es": "Aparece en",
+  "de": "Erscheint auf",
+  "fr": "Apparaît sur",
+  "pt": "Participações",
+  "ru": "Участие в релизах",
+  "ja": "参加作品",
+  "nl": "Te horen op"
+ },
+ "Artist mix": {
+  "es": "Mix del artista",
+  "de": "Künstler-Mix",
+  "fr": "Mix de l'artiste",
+  "pt": "Mix do artista",
+  "ru": "Микс исполнителя",
+  "ja": "アーティストミックス",
+  "nl": "Artiestmix"
+ },
+ "Artist radio": {
+  "es": "Radio del artista",
+  "de": "Künstler-Radio",
+  "fr": "Radio de l'artiste",
+  "pt": "Rádio do artista",
+  "ru": "Радио исполнителя",
+  "ja": "アーティストラジオ",
+  "nl": "Artiestradio"
+ },
+ "Artists": {
+  "es": "Artistas",
+  "de": "Künstler",
+  "fr": "Artistes",
+  "pt": "Artistas",
+  "ru": "Исполнители",
+  "ja": "アーティスト",
+  "nl": "Artiesten"
+ },
+ "Ask for a code first.": {
+  "es": "Primero pide un código.",
+  "de": "Fordere zuerst einen Code an.",
+  "fr": "Demandez d'abord un code.",
+  "pt": "Peça um código primeiro.",
+  "ru": "Сначала запросите код.",
+  "ja": "先にコードをリクエストしてください。",
+  "nl": "Vraag eerst een code aan."
+ },
+ "Cancel": {
+  "es": "Cancelar",
+  "de": "Abbrechen",
+  "fr": "Annuler",
+  "pt": "Cancelar",
+  "ru": "Отмена",
+  "ja": "キャンセル",
+  "nl": "Annuleren"
+ },
+ "Check sign-in": {
+  "es": "Comprobar acceso",
+  "de": "Anmeldung prüfen",
+  "fr": "Vérifier la connexion",
+  "pt": "Verificar login",
+  "ru": "Проверить вход",
+  "ja": "ログインを確認",
+  "nl": "Inloggen controleren"
+ },
+ "Decades": {
+  "es": "Décadas",
+  "de": "Jahrzehnte",
+  "fr": "Décennies",
+  "pt": "Décadas",
+  "ru": "Десятилетия",
+  "ja": "年代",
+  "nl": "Decennia"
+ },
+ "EPs and singles": {
+  "es": "EPs y sencillos",
+  "de": "EPs und Singles",
+  "fr": "EP et singles",
+  "pt": "EPs e singles",
+  "ru": "Мини-альбомы и синглы",
+  "ja": "EPとシングル",
+  "nl": "EP's en singles"
+ },
+ "Explore": {
+  "es": "Explorar",
+  "de": "Erkunden",
+  "fr": "Explorer",
+  "pt": "Explorar",
+  "ru": "Исследовать",
+  "ja": "探索",
+  "nl": "Verkennen"
+ },
+ "Finish sign-in": {
+  "es": "Terminar",
+  "de": "Anmeldung abschließen",
+  "fr": "Terminer la connexion",
+  "pt": "Concluir login",
+  "ru": "Завершить вход",
+  "ja": "ログインを完了",
+  "nl": "Inloggen voltooien"
+ },
+ "For You": {
+  "es": "Para ti",
+  "de": "Für dich",
+  "fr": "Pour vous",
+  "pt": "Para você",
+  "ru": "Для вас",
+  "ja": "おすすめ",
+  "nl": "Voor jou"
+ },
+ "Genres": {
+  "es": "Géneros",
+  "de": "Genres",
+  "fr": "Genres",
+  "pt": "Gêneros",
+  "ru": "Жанры",
+  "ja": "ジャンル",
+  "nl": "Genres"
+ },
+ "Hi-Res": {
+  "es": "Alta resolución",
+  "de": "Hi-Res",
+  "fr": "Hi-Res",
+  "pt": "Hi-Res",
+  "ru": "Hi-Res",
+  "ja": "ハイレゾ",
+  "nl": "Hi-Res"
+ },
+ "Influences": {
+  "es": "Influencias",
+  "de": "Einflüsse",
+  "fr": "Influences",
+  "pt": "Influências",
+  "ru": "Влияния",
+  "ja": "影響を受けたアーティスト",
+  "nl": "Invloeden"
+ },
+ "Latest release": {
+  "es": "Último lanzamiento",
+  "de": "Neueste Veröffentlichung",
+  "fr": "Dernière sortie",
+  "pt": "Lançamento mais recente",
+  "ru": "Последний релиз",
+  "ja": "最新リリース",
+  "nl": "Nieuwste uitgave"
+ },
+ "Mix": {
+  "es": "Mix",
+  "de": "Mix",
+  "fr": "Mix",
+  "pt": "Mix",
+  "ru": "Микс",
+  "ja": "ミックス",
+  "nl": "Mix"
+ },
+ "Moods": {
+  "es": "Estados de ánimo",
+  "de": "Stimmungen",
+  "fr": "Humeurs",
+  "pt": "Humor",
+  "ru": "Настроения",
+  "ja": "ムード",
+  "nl": "Stemmingen"
+ },
+ "Music": {
+  "es": "Música",
+  "de": "Musik",
+  "fr": "Musique",
+  "pt": "Música",
+  "ru": "Музыка",
+  "ja": "ミュージック",
+  "nl": "Muziek"
+ },
+ "My Mixes": {
+  "es": "Mis mixes",
+  "de": "Meine Mixe",
+  "fr": "Mes mix",
+  "pt": "Meus mixes",
+  "ru": "Мои миксы",
+  "ja": "マイミックス",
+  "nl": "Mijn mixes"
+ },
+ "New": {
+  "es": "Novedades",
+  "de": "Neu",
+  "fr": "Nouveautés",
+  "pt": "Novidades",
+  "ru": "Новинки",
+  "ja": "新着",
+  "nl": "Nieuw"
+ },
+ "New sign-in page": {
+  "es": "Nueva página de acceso",
+  "de": "Neue Anmeldeseite",
+  "fr": "Nouvelle page de connexion",
+  "pt": "Nova página de login",
+  "ru": "Новая страница входа",
+  "ja": "新しいログインページ",
+  "nl": "Nieuwe inlogpagina"
+ },
+ "Open Tidal sign-in": {
+  "es": "Abrir Tidal",
+  "de": "Tidal-Anmeldung öffnen",
+  "fr": "Ouvrir la connexion Tidal",
+  "pt": "Abrir login do Tidal",
+  "ru": "Открыть вход в Tidal",
+  "ja": "Tidalログインを開く",
+  "nl": "Inloggen bij Tidal"
+ },
+ "Open Tidal sign-in first.": {
+  "es": "Primero abre Tidal para iniciar sesión.",
+  "de": "Öffne zuerst die Tidal-Anmeldung.",
+  "fr": "Ouvrez d'abord la connexion Tidal.",
+  "pt": "Abra primeiro o login do Tidal.",
+  "ru": "Сначала откройте вход в Tidal.",
+  "ja": "先にTidalログインを開いてください。",
+  "nl": "Selecteer eerst ‘Inloggen bij Tidal’."
+ },
+ "Open link.tidal.com": {
+  "es": "Abrir link.tidal.com",
+  "de": "link.tidal.com öffnen",
+  "fr": "Ouvrir link.tidal.com",
+  "pt": "Abrir link.tidal.com",
+  "ru": "Открыть link.tidal.com",
+  "ja": "link.tidal.comを開く",
+  "nl": "link.tidal.com openen"
+ },
+ "Paste the address of the page Tidal shows after you approve access.": {
+  "es": "Pega la dirección de la página que Tidal muestra después de que autorizas el acceso.",
+  "de": "Füge die Adresse der Seite ein, die Tidal anzeigt, nachdem du den Zugriff genehmigt hast.",
+  "fr": "Collez l'adresse de la page que Tidal affiche une fois l'accès autorisé.",
+  "pt": "Cole o endereço da página que o Tidal mostra depois que você aprova o acesso.",
+  "ru": "Вставьте адрес страницы, которую Tidal показывает после того, как вы одобрите доступ.",
+  "ja": "アクセスを承認した後にTidalが表示するページのアドレスを貼り付けてください。",
+  "nl": "Plak het adres van de pagina die Tidal toont nadat je de toegang hebt goedgekeurd."
+ },
+ "Playback quality. The actual resolution comes from each stream.": {
+  "es": "Calidad de reproducción. La resolución real la dice cada stream.",
+  "de": "Wiedergabequalität. Die tatsächliche Auflösung ergibt sich aus dem jeweiligen Stream.",
+  "fr": "Qualité de lecture. La résolution réelle dépend de chaque flux.",
+  "pt": "Qualidade de reprodução. A resolução real vem de cada stream.",
+  "ru": "Качество воспроизведения. Фактическое разрешение определяется каждым потоком.",
+  "ja": "再生音質です。実際の解像度は各ストリームによって決まります。",
+  "nl": "Afspeelkwaliteit. Elke stream bepaalt zelf de werkelijke resolutie."
+ },
+ "Playlists": {
+  "es": "Playlists",
+  "de": "Playlists",
+  "fr": "Playlists",
+  "pt": "Playlists",
+  "ru": "Плейлисты",
+  "ja": "プレイリスト",
+  "nl": "Afspeellijsten"
+ },
+ "Popular tracks": {
+  "es": "Pistas populares",
+  "de": "Beliebte Titel",
+  "fr": "Pistes populaires",
+  "pt": "Faixas populares",
+  "ru": "Популярные треки",
+  "ja": "人気のトラック",
+  "nl": "Populaire nummers"
+ },
+ "Radio": {
+  "es": "Radio",
+  "de": "Radio",
+  "fr": "Radio",
+  "pt": "Rádio",
+  "ru": "Радио",
+  "ja": "ラジオ",
+  "nl": "Radio"
+ },
+ "Ready: Tidal is connected": {
+  "es": "Listo: Tidal está conectado",
+  "de": "Bereit: Tidal ist verbunden",
+  "fr": "Prêt : Tidal est connecté",
+  "pt": "Pronto: o Tidal está conectado",
+  "ru": "Готово: Tidal подключён",
+  "ja": "準備完了：Tidalに接続しました",
+  "nl": "Gereed: Tidal is verbonden"
+ },
+ "Recently played in Chilpa": {
+  "es": "Escuchados recientemente en Chilpa",
+  "de": "Zuletzt in Chilpa gespielt",
+  "fr": "Lus récemment dans Chilpa",
+  "pt": "Reproduzidos recentemente no Chilpa",
+  "ru": "Недавно воспроизведённые в Chilpa",
+  "ja": "Chilpaで最近再生",
+  "nl": "Onlangs afgespeeld in Chilpa"
+ },
+ "Related releases": {
+  "es": "Lanzamientos relacionados",
+  "de": "Verwandte Veröffentlichungen",
+  "fr": "Sorties associées",
+  "pt": "Lançamentos relacionados",
+  "ru": "Похожие релизы",
+  "ja": "関連リリース",
+  "nl": "Gerelateerde uitgaven"
+ },
+ "Releases": {
+  "es": "Lanzamientos",
+  "de": "Veröffentlichungen",
+  "fr": "Sorties",
+  "pt": "Lançamentos",
+  "ru": "Релизы",
+  "ja": "リリース",
+  "nl": "Uitgaven"
+ },
+ "Settings changed. Refresh before trying again.": {
+  "es": "La configuración cambió. Actualiza antes de volver a intentarlo.",
+  "de": "Die Einstellungen haben sich geändert. Aktualisiere die Seite, bevor du es erneut versuchst.",
+  "fr": "Les paramètres ont changé. Actualisez avant de réessayer.",
+  "pt": "As configurações mudaram. Atualize antes de tentar novamente.",
+  "ru": "Настройки изменились. Обновите страницу, прежде чем повторить попытку.",
+  "ja": "設定が変更されました。更新してからもう一度お試しください。",
+  "nl": "De instellingen zijn gewijzigd. Vernieuw ze voordat je het opnieuw probeert."
+ },
+ "Sign in with a code instead (AAC only)": {
+  "es": "Entrar con un código (solo AAC)",
+  "de": "Stattdessen mit einem Code anmelden (nur AAC)",
+  "fr": "Se connecter plutôt avec un code (AAC uniquement)",
+  "pt": "Entrar com um código (somente AAC)",
+  "ru": "Войти с помощью кода (только AAC)",
+  "ja": "代わりにコードでログイン（AACのみ）",
+  "nl": "In plaats daarvan inloggen met een code (alleen AAC)"
+ },
+ "Sign out": {
+  "es": "Cerrar sesión",
+  "de": "Abmelden",
+  "fr": "Se déconnecter",
+  "pt": "Sair",
+  "ru": "Выйти",
+  "ja": "ログアウト",
+  "nl": "Uitloggen"
+ },
+ "Signed in as {name}": {
+  "es": "Conectado como {name}",
+  "de": "Verbunden als {name}",
+  "fr": "Connecté en tant que {name}",
+  "pt": "Conectado como {name}",
+  "ru": "Вы вошли как {name}",
+  "ja": "{name}として接続済み",
+  "nl": "Verbonden als {name}"
+ },
+ "Similar artists": {
+  "es": "Artistas similares",
+  "de": "Ähnliche Künstler",
+  "fr": "Artistes similaires",
+  "pt": "Artistas semelhantes",
+  "ru": "Похожие исполнители",
+  "ja": "類似アーティスト",
+  "nl": "Vergelijkbare artiesten"
+ },
+ "Singles": {
+  "es": "Sencillos",
+  "de": "Singles",
+  "fr": "Singles",
+  "pt": "Singles",
+  "ru": "Синглы",
+  "ja": "シングル",
+  "nl": "Singles"
+ },
+ "Staff Picks": {
+  "es": "Selección editorial",
+  "de": "Redaktionstipps",
+  "fr": "Sélection de la rédaction",
+  "pt": "Escolhas da equipe",
+  "ru": "Выбор редакции",
+  "ja": "スタッフ選曲",
+  "nl": "Keuze van de redactie"
+ },
+ "Step 1 of 2: authorize with a code": {
+  "es": "Paso 1 de 2: autoriza con un código",
+  "de": "Schritt 1 von 2: mit einem Code autorisieren",
+  "fr": "Étape 1 sur 2 : autoriser avec un code",
+  "pt": "Etapa 1 de 2: autorize com um código",
+  "ru": "Шаг 1 из 2: авторизуйтесь с помощью кода",
+  "ja": "ステップ1/2：コードで承認",
+  "nl": "Stap 1 van 2: autoriseren met een code"
+ },
+ "Step 1 of 2: authorize your account": {
+  "es": "Paso 1 de 2: autoriza tu cuenta",
+  "de": "Schritt 1 von 2: Konto autorisieren",
+  "fr": "Étape 1 sur 2 : autoriser votre compte",
+  "pt": "Etapa 1 de 2: autorize sua conta",
+  "ru": "Шаг 1 из 2: авторизуйте свою учётную запись",
+  "ja": "ステップ1/2：アカウントへのアクセスを承認",
+  "nl": "Stap 1 van 2: je account autoriseren"
+ },
+ "That address is not from Tidal. Copy the address of the page Tidal shows after you approve access.": {
+  "es": "Esa dirección no es de Tidal. Copia la dirección de la página que Tidal muestra después de que autorizas el acceso.",
+  "de": "Diese Adresse stammt nicht von Tidal. Kopiere die Adresse der Seite, die Tidal anzeigt, nachdem du den Zugriff genehmigt hast.",
+  "fr": "Cette adresse ne provient pas de Tidal. Copiez l'adresse de la page que Tidal affiche une fois l'accès autorisé.",
+  "pt": "Esse endereço não é do Tidal. Copie o endereço da página que o Tidal mostra depois que você aprova o acesso.",
+  "ru": "Этот адрес не относится к Tidal. Скопируйте адрес страницы, которую Tidal показывает после того, как вы одобрите доступ.",
+  "ja": "このアドレスはTidalのものではありません。アクセスを承認した後にTidalが表示するページのアドレスをコピーしてください。",
+  "nl": "Dat adres komt niet van Tidal. Kopieer het adres van de pagina die Tidal toont nadat je de toegang hebt goedgekeurd."
+ },
+ "That is not a web address. Copy the whole address from the browser's address bar.": {
+  "es": "Eso no es una dirección web. Copia la dirección completa de la barra del navegador.",
+  "de": "Das ist keine Webadresse. Kopiere die vollständige Adresse aus der Adressleiste des Browsers.",
+  "fr": "Ce n'est pas une adresse web. Copiez l'adresse complète depuis la barre d'adresse du navigateur.",
+  "pt": "Isso não é um endereço web. Copie o endereço completo da barra de endereços do navegador.",
+  "ru": "Это не веб-адрес. Скопируйте адрес целиком из адресной строки браузера.",
+  "ja": "これはウェブアドレスではありません。ブラウザーのアドレスバーからアドレス全体をコピーしてください。",
+  "nl": "Dat is geen webadres. Kopieer het volledige adres uit de adresbalk van de browser."
+ },
+ "That is the address of the sign-in page itself. Sign in and approve access first, then copy the address of the page Tidal shows afterwards.": {
+  "es": "Esa es la dirección de la página para iniciar sesión. Primero inicia sesión y autoriza el acceso; después copia la dirección de la página que Tidal muestra al final.",
+  "de": "Das ist die Adresse der Anmeldeseite selbst. Melde dich zuerst an und genehmige den Zugriff, kopiere dann die Adresse der Seite, die Tidal anschließend anzeigt.",
+  "fr": "Il s'agit de l'adresse de la page de connexion elle-même. Connectez-vous et autorisez d'abord l'accès, puis copiez l'adresse de la page que Tidal affiche ensuite.",
+  "pt": "Esse é o endereço da própria página de login. Primeiro entre e aprove o acesso; depois copie o endereço da página que o Tidal mostra no final.",
+  "ru": "Это адрес самой страницы входа. Сначала войдите и одобрите доступ, а затем скопируйте адрес страницы, которую Tidal покажет после этого.",
+  "ja": "これはログインページ自体のアドレスです。先にログインしてアクセスを承認し、その後にTidalが表示するページのアドレスをコピーしてください。",
+  "nl": "Dat is het adres van de inlogpagina zelf. Log eerst in en keur de toegang goed, kopieer daarna het adres van de pagina die Tidal vervolgens toont."
+ },
+ "The code expired. Ask for a new one, or use the browser sign-in.": {
+  "es": "El código caducó. Pide uno nuevo o entra desde el navegador.",
+  "de": "Der Code ist abgelaufen. Fordere einen neuen an oder nutze die Anmeldung über den Browser.",
+  "fr": "Le code a expiré. Demandez-en un nouveau ou utilisez la connexion par le navigateur.",
+  "pt": "O código expirou. Peça um novo ou use o login pelo navegador.",
+  "ru": "Срок действия кода истёк. Запросите новый или используйте вход через браузер.",
+  "ja": "コードの有効期限が切れました。新しいコードをリクエストするか、ブラウザーでログインしてください。",
+  "nl": "De code is verlopen. Vraag een nieuwe aan of gebruik het inloggen via de browser."
+ },
+ "The code expired. This is the browser sign-in again; you can ask for a new code below.": {
+  "es": "El código caducó. Esta es otra vez la entrada desde el navegador; abajo puedes pedir un código nuevo.",
+  "de": "Der Code ist abgelaufen. Das ist wieder die Anmeldung über den Browser; unten kannst du einen neuen Code anfordern.",
+  "fr": "Le code a expiré. Retour à la connexion par le navigateur ; vous pouvez demander un nouveau code ci-dessous.",
+  "pt": "O código expirou. A página voltou ao login pelo navegador; você pode pedir um novo código abaixo.",
+  "ru": "Срок действия кода истёк. Снова доступен вход через браузер; новый код можно запросить ниже.",
+  "ja": "コードの有効期限が切れました。ブラウザーでのログインに戻りました。下から新しいコードをリクエストできます。",
+  "nl": "De code is verlopen. Je bent terug bij het inloggen via de browser; hieronder kun je een nieuwe code aanvragen."
+ },
+ "The previous sign-in page expired. Open the new one below.": {
+  "es": "La página de acceso anterior caducó. Abre la nueva desde aquí.",
+  "de": "Die vorherige Anmeldeseite ist abgelaufen. Öffne unten die neue.",
+  "fr": "La page de connexion précédente a expiré. Ouvrez la nouvelle ci-dessous.",
+  "pt": "A página de login anterior expirou. Abra a nova abaixo.",
+  "ru": "Срок действия предыдущей страницы входа истёк. Откройте новую ниже.",
+  "ja": "前回のログインページの有効期限が切れました。下の新しいページを開いてください。",
+  "nl": "De vorige inlogpagina is verlopen. Open hieronder de nieuwe."
+ },
+ "This account signed in with a code, and Tidal limits that kind of sign-in to AAC 320 kbps. For FLAC and Max, sign out and sign in again through the browser.": {
+  "es": "Esta cuenta inició sesión con un código, y Tidal limita ese tipo de acceso a AAC 320 kbps. Para FLAC y Max, cierra sesión y vuelve a entrar desde el navegador.",
+  "de": "Dieses Konto wurde mit einem Code angemeldet, und Tidal beschränkt diese Art der Anmeldung auf AAC 320 kbps. Für FLAC und Max melde dich ab und melde dich erneut über den Browser an.",
+  "fr": "Ce compte s'est connecté avec un code, et Tidal limite ce type de connexion à AAC 320 kbps. Pour FLAC et Max, déconnectez-vous puis reconnectez-vous par le navigateur.",
+  "pt": "Esta conta entrou com um código, e o Tidal limita esse tipo de login a AAC 320 kbps. Para FLAC e Max, saia e entre novamente pelo navegador.",
+  "ru": "Вход в эту учётную запись выполнен с помощью кода, а Tidal ограничивает такой способ входа форматом AAC 320 kbps. Для FLAC и Max выйдите и войдите снова через браузер.",
+  "ja": "このアカウントはコードでログインしています。Tidalはこの方法でのログインをAAC 320 kbpsに制限しています。FLACとMaxを利用するには、ログアウトしてからブラウザーでもう一度ログインしてください。",
+  "nl": "Dit account is ingelogd met een code en Tidal beperkt dat soort inloggen tot AAC 320 kbps. Log voor FLAC en Max uit en log opnieuw in via de browser."
+ },
+ "This address belongs to an earlier sign-in. Select Open Tidal sign-in again and copy the address of the new page.": {
+  "es": "Esta dirección es de un intento anterior. Vuelve a seleccionar Abrir Tidal y copia la dirección de la página nueva.",
+  "de": "Diese Adresse gehört zu einer früheren Anmeldung. Wähle erneut „Tidal-Anmeldung öffnen“ und kopiere die Adresse der neuen Seite.",
+  "fr": "Cette adresse appartient à une connexion précédente. Sélectionnez à nouveau Ouvrir la connexion Tidal et copiez l'adresse de la nouvelle page.",
+  "pt": "Este endereço pertence a um login anterior. Selecione novamente Abrir login do Tidal e copie o endereço da nova página.",
+  "ru": "Этот адрес относится к предыдущей попытке входа. Нажмите «Открыть вход в Tidal» ещё раз и скопируйте адрес новой страницы.",
+  "ja": "このアドレスは以前のログインのものです。もう一度「Tidalログインを開く」を選択し、新しいページのアドレスをコピーしてください。",
+  "nl": "Dit adres hoort bij een eerdere inlogpoging. Selecteer opnieuw ‘Inloggen bij Tidal’ en kopieer het adres van de nieuwe pagina."
+ },
+ "This address has no sign-in code yet. Approve access in Tidal first, then copy the address of the page it shows at the end.": {
+  "es": "Esta dirección todavía no trae el código de acceso. Primero autoriza el acceso en Tidal; después copia la dirección de la página que muestra al final.",
+  "de": "Diese Adresse enthält noch keinen Anmeldecode. Genehmige zuerst den Zugriff bei Tidal und kopiere dann die Adresse der Seite, die am Ende angezeigt wird.",
+  "fr": "Cette adresse ne contient pas encore de code de connexion. Autorisez d'abord l'accès dans Tidal, puis copiez l'adresse de la page qu'il affiche à la fin.",
+  "pt": "Este endereço ainda não tem um código de login. Aprove primeiro o acesso no Tidal; depois copie o endereço da página que ele mostra no final.",
+  "ru": "В этом адресе пока нет кода входа. Сначала одобрите доступ в Tidal, а затем скопируйте адрес страницы, которую он покажет в конце.",
+  "ja": "このアドレスにはまだログインコードが含まれていません。先にTidalでアクセスを承認し、最後に表示されるページのアドレスをコピーしてください。",
+  "nl": "Dit adres bevat nog geen inlogcode. Keur eerst de toegang goed in Tidal en kopieer daarna het adres van de pagina die Tidal aan het einde toont."
+ },
+ "This sign-in page expired. Open the new one and try again.": {
+  "es": "Esta página de acceso caducó. Abre la nueva e inténtalo otra vez.",
+  "de": "Diese Anmeldeseite ist abgelaufen. Öffne die neue und versuche es erneut.",
+  "fr": "Cette page de connexion a expiré. Ouvrez la nouvelle et réessayez.",
+  "pt": "Esta página de login expirou. Abra a nova e tente novamente.",
+  "ru": "Срок действия этой страницы входа истёк. Откройте новую и повторите попытку.",
+  "ja": "このログインページの有効期限が切れました。新しいページを開いて、もう一度お試しください。",
+  "nl": "Deze inlogpagina is verlopen. Open de nieuwe en probeer het opnieuw."
+ },
+ "Tidal did not accept the sign-in. Try again.": {
+  "es": "Tidal no aceptó el acceso. Inténtalo otra vez.",
+  "de": "Tidal hat die Anmeldung nicht akzeptiert. Versuche es erneut.",
+  "fr": "Tidal n'a pas accepté la connexion. Réessayez.",
+  "pt": "O Tidal não aceitou o login. Tente novamente.",
+  "ru": "Tidal не принял вход. Повторите попытку.",
+  "ja": "Tidalがログインを受け付けませんでした。もう一度お試しください。",
+  "nl": "Tidal heeft het inloggen niet geaccepteerd. Probeer het opnieuw."
+ },
+ "Tidal did not accept this code. A code works once and only for a few minutes: select Open Tidal sign-in again and copy the address of the new page.": {
+  "es": "Tidal no aceptó este código. Cada código sirve una sola vez y solo unos minutos: vuelve a seleccionar Abrir Tidal y copia la dirección de la página nueva.",
+  "de": "Tidal hat diesen Code nicht akzeptiert. Ein Code funktioniert nur einmal und nur wenige Minuten lang: Wähle erneut „Tidal-Anmeldung öffnen“ und kopiere die Adresse der neuen Seite.",
+  "fr": "Tidal n'a pas accepté ce code. Un code ne fonctionne qu'une fois et seulement quelques minutes : sélectionnez à nouveau Ouvrir la connexion Tidal et copiez l'adresse de la nouvelle page.",
+  "pt": "O Tidal não aceitou este código. Um código funciona uma única vez e só por alguns minutos: selecione novamente Abrir login do Tidal e copie o endereço da nova página.",
+  "ru": "Tidal не принял этот код. Код действует один раз и только несколько минут: нажмите «Открыть вход в Tidal» ещё раз и скопируйте адрес новой страницы.",
+  "ja": "Tidalがこのコードを受け付けませんでした。コードは一度だけ、数分間のみ有効です。もう一度「Tidalログインを開く」を選択し、新しいページのアドレスをコピーしてください。",
+  "nl": "Tidal heeft deze code niet geaccepteerd. Een code werkt maar één keer en slechts een paar minuten: selecteer opnieuw ‘Inloggen bij Tidal’ en kopieer het adres van de nieuwe pagina."
+ },
+ "Tidal did not return a sign-in code. Try again.": {
+  "es": "Tidal no devolvió un código de acceso. Inténtalo otra vez.",
+  "de": "Tidal hat keinen Anmeldecode zurückgegeben. Versuche es erneut.",
+  "fr": "Tidal n'a pas renvoyé de code de connexion. Réessayez.",
+  "pt": "O Tidal não enviou nenhum código de login. Tente novamente.",
+  "ru": "Tidal не вернул код входа. Повторите попытку.",
+  "ja": "Tidalがログインコードを返しませんでした。もう一度お試しください。",
+  "nl": "Tidal heeft geen inlogcode teruggegeven. Probeer het opnieuw."
+ },
+ "Tidal has not confirmed the sign-in yet. Approve it on link.tidal.com, then select Check sign-in again (the code stays valid for about {minutes} min).": {
+  "es": "Tidal todavía no confirma el acceso. Autorízalo en link.tidal.com y vuelve a seleccionar Comprobar acceso (el código sigue vigente unos {minutes} min).",
+  "de": "Tidal hat die Anmeldung noch nicht bestätigt. Genehmige sie auf link.tidal.com und wähle dann erneut „Anmeldung prüfen“ (der Code bleibt noch etwa {minutes} Min. gültig).",
+  "fr": "Tidal n'a pas encore confirmé la connexion. Autorisez-la sur link.tidal.com, puis sélectionnez à nouveau Vérifier la connexion (le code reste valable environ {minutes} min).",
+  "pt": "O Tidal ainda não confirmou o login. Aprove-o em link.tidal.com e selecione novamente Verificar login (o código continua válido por cerca de {minutes} min).",
+  "ru": "Tidal пока не подтвердил вход. Одобрите его на link.tidal.com, затем снова нажмите «Проверить вход» (код действует ещё около {minutes} мин).",
+  "ja": "Tidalはまだログインを確認していません。link.tidal.comで承認してから、もう一度「ログインを確認」を選択してください（コードは約{minutes}分間有効です）。",
+  "nl": "Tidal heeft het inloggen nog niet bevestigd. Keur het goed op link.tidal.com en selecteer daarna opnieuw ‘Inloggen controleren’ (de code blijft nog ongeveer {minutes} min geldig)."
+ },
+ "Tidal limits this sign-in to AAC 320 kbps. For FLAC and Max, use the browser sign-in.": {
+  "es": "Tidal limita este acceso a AAC 320 kbps. Para FLAC y Max, usa la entrada desde el navegador.",
+  "de": "Tidal beschränkt diese Anmeldung auf AAC 320 kbps. Für FLAC und Max nutze die Anmeldung über den Browser.",
+  "fr": "Tidal limite cette connexion à AAC 320 kbps. Pour FLAC et Max, utilisez la connexion par le navigateur.",
+  "pt": "O Tidal limita este login a AAC 320 kbps. Para FLAC e Max, use o login pelo navegador.",
+  "ru": "Tidal ограничивает этот способ входа форматом AAC 320 kbps. Для FLAC и Max используйте вход через браузер.",
+  "ja": "Tidalはこのログイン方法をAAC 320 kbpsに制限しています。FLACとMaxを利用するには、ブラウザーでのログインを使用してください。",
+  "nl": "Tidal beperkt deze manier van inloggen tot AAC 320 kbps. Gebruik voor FLAC en Max het inloggen via de browser."
+ },
+ "Top": {
+  "es": "Top",
+  "de": "Top",
+  "fr": "Top",
+  "pt": "Top",
+  "ru": "Топ",
+  "ja": "ランキング",
+  "nl": "Top"
+ },
+ "Tracks": {
+  "es": "Pistas",
+  "de": "Titel",
+  "fr": "Pistes",
+  "pt": "Faixas",
+  "ru": "Треки",
+  "ja": "トラック",
+  "nl": "Nummers"
+ },
+ "{name} Mix": {
+  "es": "Mix de {name}",
+  "de": "Mix: {name}",
+  "fr": "Mix {name}",
+  "pt": "Mix de {name}",
+  "ru": "Микс: {name}",
+  "ja": "{name}のミックス",
+  "nl": "Mix: {name}"
+ },
+ "{name} Radio": {
+  "es": "Radio de {name}",
+  "de": "Radio: {name}",
+  "fr": "Radio {name}",
+  "pt": "Rádio de {name}",
+  "ru": "Радио: {name}",
+  "ja": "{name}のラジオ",
+  "nl": "Radio: {name}"
+ }
+}

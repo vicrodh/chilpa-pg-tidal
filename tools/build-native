@@ -1,118 +1,61 @@
 #!/usr/bin/env python3
-"""Build a self-contained process plugin and its installable ZIP."""
+"""Build the plugin for this machine and package its executable."""
+import getpass
 import hashlib
-import importlib.metadata
 import json
-import pathlib
-import ctypes.util
 import os
-import platform
+import pathlib
 import shutil
 import subprocess
 import sys
 import zipfile
 
 root = pathlib.Path(__file__).resolve().parents[1]
-library = os.environ.get("CHILPA_FLAC_LIBRARY")
-if library is None:
-    candidate = ctypes.util.find_library("FLAC")
-    if candidate and pathlib.Path(candidate).is_file():
-        library = candidate
-    elif sys.platform.startswith("linux") and pathlib.Path("/usr/lib64/libFLAC.so.14").is_file():
-        library = "/usr/lib64/libFLAC.so.14"
-if not library or not pathlib.Path(library).is_file():
-    raise SystemExit("Set CHILPA_FLAC_LIBRARY to the local libFLAC shared library before building.")
-library = str(pathlib.Path(library).resolve())
-build = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--name", "plugin",
-    "--paths", str(root / "src"), "--exclude-module", "av", "--collect-data", "certifi", "--copy-metadata", "tidalapi",
-    "--add-binary", f"{library}:.",
-    "--distpath", str(root / "build" / "package"), "--workpath", str(root / "build" / "work"),
-    "--specpath", str(root / "build"), str(root / "src" / "main.py")]
-if sys.platform.startswith("linux"):
-    build.insert(3, "--strip")
-subprocess.run(build, cwd=root, check=True)
 manifest = json.loads((root / "manifest.json").read_text())
-machine = platform.machine().lower()
-if machine in ("amd64", "x64"):
-    machine = "x86_64"
-elif machine in ("arm64", "aarch64"):
-    machine = "aarch64"
-if sys.platform == "win32":
-    triple = f"{machine}-pc-windows-msvc"
-elif sys.platform == "darwin":
-    triple = f"{machine}-apple-darwin"
-elif sys.platform.startswith("linux"):
-    triple = f"{machine}-unknown-linux-gnu"
-else:
-    raise SystemExit(f"Unsupported packaging platform: {sys.platform}")
-target = root / "dist" / (manifest["version"] + "-" + triple)
-if target.exists():
-    shutil.rmtree(target)
-shutil.copytree(root / "build" / "package" / "plugin", target)
+metadata = json.loads(subprocess.check_output(
+    ["cargo", "metadata", "--format-version", "1", "--no-deps", "--locked", "--offline"], cwd=root))
+triple = next(line.split(": ", 1)[1] for line in subprocess.check_output(
+    ["rustc", "-vV"], text=True).splitlines() if line.startswith("host: "))
+
+build = ["cargo", "build", "--locked", "--offline", "--release", "--target", triple,
+         "-p", "chilpa-pg-tidal", "--bin", "plugin"]
+if sys.platform.startswith("linux"):
+    # One Rust build at a time on a shared workstation: CHILPA_BUILD_LOCK names
+    # the lock file every build takes; without it nothing is locked.
+    try:
+        default_lock = "/mnt/build/tmp/" + getpass.getuser() + "/chilpa-cargo.lock"
+    except (KeyError, OSError):
+        default_lock = ""
+    lock = pathlib.Path(os.environ.get("CHILPA_BUILD_LOCK") or default_lock or "/nonexistent/lock")
+    capped = pathlib.Path.home() / ".local/bin/cargo-capped"
+    if lock.parent.is_dir() and capped.is_file() and shutil.which("flock"):
+        build = ["flock", str(lock), str(capped), *build]
+environment = dict(os.environ)
+# The configured target directory may be shared with another plugin whose
+# executable is also named plugin; this one builds in its own subdirectory.
+environment.setdefault("CARGO_TARGET_DIR", str(pathlib.Path(metadata["target_directory"]) / "chilpa-pg-tidal"))
+subprocess.run(build, cwd=root, check=True, env=environment)
+
 executable = "plugin.exe" if sys.platform == "win32" else "plugin"
-if not (target / executable).is_file():
-    raise SystemExit(f"PyInstaller did not produce {executable}")
-for name in ["manifest.json", "icon.svg", "folder.svg", "COPYING", "NOTICE", "README.md", "requirements.txt"]:
-    shutil.copy2(root / name, target / name)
-shutil.copy2(root / "icon.svg", target / ".host-icon.svg")
-shutil.copy2(root / "folder.svg", target / ".host-folder-icon.svg")
-# Source and dependency licenses travel with the artifact, independent of GitHub publication.
-shutil.copytree(root / "src", target / "source", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-licenses = target / "licenses"
-licenses.mkdir()
-for path in (root / "licenses").iterdir():
-    shutil.copy2(path, licenses / path.name)
-for distribution in importlib.metadata.distributions():
-    name = distribution.metadata["Name"]
-    if name.lower() == "av":
-        continue
-    for entry in distribution.files or []:
-        if any(word in pathlib.Path(entry).name.lower() for word in ("license", "copying", "notice")):
-            path = pathlib.Path(distribution.locate_file(entry))
-            if path.is_file() and path.stat().st_size < 2 * 1024 * 1024:
-                shutil.copy2(path, licenses / (name + "-" + path.name))
-requirements = subprocess.check_output([sys.executable, "-m", "pip", "freeze"], text=True)
-(target / "dependencies.txt").write_text(requirements)
-# I carry the interpreter license alongside the bundled runtime.
-python_license = pathlib.Path(sys.base_prefix) / "lib" / ("python" + str(sys.version_info.major) + "." + str(sys.version_info.minor)) / "LICENSE.txt"
-if python_license.is_file():
-    shutil.copy2(python_license, licenses / "Python-LICENSE.txt")
-
-# Standalone interpreter distributions supply their transitive runtime notices.
-python_notices = os.environ.get("CHILPA_PYTHON_NOTICES")
-if python_notices:
-    notices = pathlib.Path(python_notices).resolve(strict=True)
-    destination = licenses / "python-runtime"
-    destination.mkdir()
-    for notice in sorted(notices.glob("LICENSE.*.txt")):
-        shutil.copy2(notice, destination / notice.name)
-    if (notices / "PYTHON.json").is_file():
-        shutil.copy2(notices / "PYTHON.json", destination / "PYTHON.json")
-
-# I remove local symbols before signing so the runtime meets the host file limit.
+source = pathlib.Path(environment["CARGO_TARGET_DIR"]) / triple / "release" / executable
+folder = root / "dist" / f'{manifest["version"]}-{triple}'
+if folder.exists():
+    shutil.rmtree(folder)
+folder.mkdir(parents=True)
+shutil.copy2(source, folder / executable)
+names = (executable, "manifest.json", "icon.svg", "folder.svg", "COPYING", "NOTICE", "README.md")
+for name in names[1:]:
+    shutil.copy2(root / name, folder / name)
 if sys.platform == "darwin":
-    for path in sorted(target.rglob("*")):
-        if not path.is_file() or path.is_symlink() or path == target / executable:
-            continue
-        with path.open("rb") as stream:
-            magic = stream.read(4)
-        if magic not in (bytes.fromhex("cffaedfe"), bytes.fromhex("cafebabe"), bytes.fromhex("cafebabf")):
-            continue
-        subprocess.run(["strip", "-S", "-x", str(path)], check=True)
-        subprocess.run(["codesign", "--force", "--sign", "-", str(path)], check=True)
-        subprocess.run(["codesign", "--verify", "--strict", str(path)], check=True)
-
-archive = target.parent / (target.name + ".zip")
+    subprocess.run(["codesign", "--force", "--sign", "-", str(folder / executable)], check=True)
+    subprocess.run(["codesign", "--verify", "--strict", str(folder / executable)], check=True)
+archive = folder.parent / f"{folder.name}.zip"
 with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as package:
-    for path in sorted(target.rglob("*")):
-        if path.is_file():
-            package.write(path, path.relative_to(target))
+    for path in (folder / name for name in names):
+        package.write(path, path.name)
 with zipfile.ZipFile(archive) as package:
-    assert archive.stat().st_size <= 32*1024*1024, "Host compressed package limit"
-    assert sum(p.file_size for p in package.infolist()) <= 64*1024*1024, "Host expanded package limit"
-    assert all(p.file_size <= 16*1024*1024 for p in package.infolist()), "Host single-file limit"
-    assert len(package.infolist()) <= 4096, "Host file count limit"
-    names = [p.filename.lower() for p in package.infolist()]
-    assert len(names) == len(set(names)), "Host case-insensitive path collision"
-print(archive)
-print("SHA256 " + hashlib.sha256(archive.read_bytes()).hexdigest())
+    assert archive.stat().st_size <= 32 * 1024 * 1024, "Host compressed package limit"
+    assert sum(p.file_size for p in package.infolist()) <= 64 * 1024 * 1024, "Host expanded package limit"
+    assert all(p.file_size <= 16 * 1024 * 1024 for p in package.infolist()), "Host single-file limit"
+for path in (folder / executable, archive):
+    print(f"{path}\nSHA256 {hashlib.sha256(path.read_bytes()).hexdigest()}")
