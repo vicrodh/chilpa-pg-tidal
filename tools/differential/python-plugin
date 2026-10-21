@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+"""Run the Python plugin with every https request sent to CHILPA_TIDAL_MOCK.
+
+Run it with the interpreter of an environment that has the plugin's
+dependencies; arguments go to the plugin (for example --data-dir PATH).
+"""
+import os
+import runpy
+import sys
+
+SOURCE = os.environ.get("CHILPA_TIDAL_PYTHON_SOURCE", "/home/blitzkriegfc/Personal/chilpa/pg-tidal-library/src")
+base = os.environ["CHILPA_TIDAL_MOCK"].rstrip("/")
+
+import requests.sessions  # noqa: E402
+
+original = requests.sessions.Session.request
+
+
+def request(self, method, url, *args, **kwargs):
+    # The plugin validates the original address first; only the transport is redirected.
+    if isinstance(url, str) and url.startswith("https://"):
+        url = base + "/" + url[len("https://"):]
+    return original(self, method, url, *args, **kwargs)
+
+
+requests.sessions.Session.request = request
+sys.path.insert(0, SOURCE)
+sys.argv = [os.path.join(SOURCE, "main.py"), *sys.argv[1:]]
+runpy.run_path(sys.argv[0], run_name="__main__")

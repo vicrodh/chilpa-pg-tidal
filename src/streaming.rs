@@ -279,8 +279,10 @@ impl Dash {
         header.extend_from_slice(&(size as u32).to_le_bytes());
         let asset = Arc::new(Dash { http, rate: found.rate, bits, channels, init, segments: found.segments, starts, width, header,
             length: 44 + size, state: Mutex::new(Segments { cache: HashMap::new(), order: VecDeque::new(), flights: HashMap::new() }) });
-        // The first fragment is fetched while the host opens the stream.
-        asset.prefetch(0);
+        // A stream whose first fragment cannot be read fails here, where the
+        // host expects it, not halfway through its first read.
+        asset.segment(0)?;
+        asset.prefetch(1);
         Ok(asset)
     }
 
