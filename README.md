@@ -23,8 +23,11 @@ an account that was signed in stays signed in.
 Open the plugin's settings. Two ways are offered:
 
 - **In the browser (FLAC and Max).** Select Open Tidal sign-in, sign in and
-  approve access. Tidal then shows a page that may say Oops or stay blank; its
-  address carries the sign-in code. Copy that whole address from the address
+  approve access. A Chilpa that has its sign-in window (Linux with WebKitGTK)
+  opens the page there, stops at Tidal's return address and finishes the
+  sign-in by itself. Otherwise the page opens in the browser, and Tidal then
+  shows a page that may say Oops or stay blank; its address carries the
+  sign-in code. Copy that whole address from the address
   bar, paste it in the settings page and select Finish sign-in. The page
   explains which address it needs when a different one is pasted, and a bare
   code is accepted too. Passwords stay in the browser.

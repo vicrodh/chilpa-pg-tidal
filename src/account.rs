@@ -186,10 +186,10 @@ impl Account {
                     label = say(locale, "Step 1 of 2: authorize your account", "Paso 1 de 2: autoriza tu cuenta");
                     description = say(locale, "A Tidal subscription is required for full playback. Your password stays in the browser.",
                         "La reproducción completa requiere una suscripción a Tidal. Tu contraseña se queda en el navegador.");
-                    paragraph(&mut content, "1. Select Open Tidal sign-in. Your browser opens Tidal; sign in and approve access.",
-                        "1. Selecciona Abrir Tidal. Tu navegador abre Tidal; inicia sesión y autoriza el acceso.");
-                    paragraph(&mut content, "2. Tidal then shows a page that may say Oops or stay blank. That is expected: the address of that page carries the sign-in code.",
-                        "2. Después Tidal muestra una página que puede decir Oops o quedarse en blanco. Así debe ser: la dirección de esa página trae el código de acceso.");
+                    paragraph(&mut content, "1. Select Open Tidal sign-in, sign in and approve access. If Chilpa opens Tidal in a window of its own, the sign-in finishes there and nothing else is needed.",
+                        "1. Selecciona Abrir Tidal, inicia sesión y autoriza el acceso. Si Chilpa abre Tidal en una ventana propia, el acceso termina ahí y no hace falta nada más.");
+                    paragraph(&mut content, "2. If it opens in your browser, Tidal ends on a page that may say Oops or stay blank. That is expected: the address of that page carries the sign-in code.",
+                        "2. Si se abre en tu navegador, Tidal termina en una página que puede decir Oops o quedarse en blanco. Así debe ser: la dirección de esa página trae el código de acceso.");
                     paragraph(&mut content, "3. Copy the whole address of that page from the browser's address bar (click it, then Ctrl+A and Ctrl+C), paste it below and select Finish sign-in.",
                         "3. Copia la dirección completa de esa página desde la barra del navegador (haz clic en ella, luego Ctrl+A y Ctrl+C), pégala abajo y selecciona Terminar.");
                     // A host that can open the page in its own window stops at the
