@@ -21,6 +21,9 @@ pub const REDIRECT: &str = "https://tidal.com/android/login/auth";
 pub const AUTHORIZE: &str = "https://login.tidal.com/authorize";
 pub const DEVICE_AUTHORIZATION: &str = "https://auth.tidal.com/v1/oauth2/device_authorization";
 const BROWSER_LIFETIME: Duration = Duration::from_secs(30 * 60);
+/// The page renders its Android flow, whose last step is the return address,
+/// for an Android web view.
+pub const ANDROID_WEB_VIEW: &str = "Mozilla/5.0 (Linux; Android 12; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Safari/537.36";
 const QUALITIES: [(&str, &str); 3] = [("HI_RES_LOSSLESS", "Max · Hi-Res FLAC"), ("LOSSLESS", "High · FLAC"), ("HIGH", "AAC 320 kbps")];
 
 enum Pending {
@@ -180,7 +183,7 @@ impl Account {
             match wizard.pending.as_ref().unwrap() {
                 Pending::Browser { url, .. } => {
                     (identity, phase, done) = ("browser", "pending", 0);
-                    label = say(locale, "Connect Tidal", "Conecta Tidal");
+                    label = say(locale, "Step 1 of 2: authorize your account", "Paso 1 de 2: autoriza tu cuenta");
                     description = say(locale, "A Tidal subscription is required for full playback. Your password stays in the browser.",
                         "La reproducción completa requiere una suscripción a Tidal. Tu contraseña se queda en el navegador.");
                     paragraph(&mut content, "1. Select Open Tidal sign-in. Your browser opens Tidal; sign in and approve access.",
@@ -189,7 +192,11 @@ impl Account {
                         "2. Después Tidal muestra una página que puede decir Oops o quedarse en blanco. Así debe ser: la dirección de esa página trae el código de acceso.");
                     paragraph(&mut content, "3. Copy the whole address of that page from the browser's address bar (click it, then Ctrl+A and Ctrl+C), paste it below and select Finish sign-in.",
                         "3. Copia la dirección completa de esa página desde la barra del navegador (haz clic en ella, luego Ctrl+A y Ctrl+C), pégala abajo y selecciona Terminar.");
-                    links.push(json!({"label": say(locale, "Open Tidal sign-in", "Abrir Tidal"), "url": url, "primary": true}));
+                    // A host that can open the page in its own window stops at the
+                    // return address and submits it as the finish action; any other
+                    // host opens the browser and the person pastes the address.
+                    links.push(json!({"label": say(locale, "Open Tidal sign-in", "Abrir Tidal"), "url": url, "primary": true,
+                        "capture": {"until": REDIRECT, "action": "finish", "field": "redirect_url", "user_agent": ANDROID_WEB_VIEW}}));
                     fields.push(json!({"key": "redirect_url", "label": say(locale, "Address of the page Tidal shows at the end", "Dirección de la página que Tidal muestra al final"),
                         "required": true, "description": "", "control": {"type": "text", "max_length": 8192}}));
                     values["redirect_url"] = json!(wizard.address);
@@ -198,21 +205,21 @@ impl Account {
                     actions.push(json!({"key": "device", "label": say(locale, "Sign in with a code instead (AAC only)", "Entrar con un código (solo AAC)"), "fields": []}));
                 }
                 Pending::Device { user_code, link, .. } => {
-                    (identity, phase, done) = ("device", "running", 1);
-                    label = say(locale, "Waiting for approval on link.tidal.com", "Esperando la autorización en link.tidal.com");
+                    (identity, phase, done) = ("device", "pending", 0);
+                    label = say(locale, "Step 1 of 2: authorize with a code", "Paso 1 de 2: autoriza con un código");
                     description = say(locale, "Tidal limits this sign-in to AAC 320 kbps. For FLAC and Max, use the browser sign-in.",
                         "Tidal limita este acceso a AAC 320 kbps. Para FLAC y Max, usa la entrada desde el navegador.");
                     paragraph(&mut content, &format!("1. Select Open link.tidal.com. The code {user_code} is already filled in; if Tidal asks for it, type it."),
                         &format!("1. Selecciona Abrir link.tidal.com. El código {user_code} ya va incluido; si Tidal te lo pide, escríbelo."));
                     paragraph(&mut content, "2. Sign in and approve access.", "2. Inicia sesión y autoriza el acceso.");
-                    paragraph(&mut content, "3. Come back here and select I approved it.", "3. Regresa aquí y selecciona Ya lo autoricé.");
+                    paragraph(&mut content, "3. Come back here and select Check sign-in.", "3. Regresa aquí y selecciona Comprobar acceso.");
                     links.push(json!({"label": say(locale, "Open link.tidal.com", "Abrir link.tidal.com"), "url": link, "primary": true}));
-                    actions.push(json!({"key": "poll", "label": say(locale, "I approved it", "Ya lo autoricé"), "fields": []}));
-                    actions.push(json!({"key": "restart", "label": say(locale, "Use the browser sign-in instead", "Mejor entrar desde el navegador"), "fields": []}));
+                    actions.push(json!({"key": "poll", "label": say(locale, "Check sign-in", "Comprobar acceso"), "fields": []}));
+                    actions.push(json!({"key": "restart", "label": say(locale, "Cancel", "Cancelar"), "fields": []}));
                 }
             }
         }
-        json!({"revision": wizard.revision, "wizard": {"step": done + 1, "total": 2, "id": identity, "waiting": phase == "running"},
+        json!({"revision": wizard.revision, "wizard": {"step": done + 1, "total": 2, "id": identity, "waiting": identity == "device"},
             "progress": {"done": done, "total": 2}, "status": {"phase": phase, "label": label, "description": description},
             "form": {"fields": fields, "actions": actions, "unsupported": []}, "values": values,
             "content": content, "links": links, "notices": notices})
@@ -350,9 +357,9 @@ impl Account {
             if next >= until {
                 let remaining = expires.saturating_duration_since(Instant::now()).as_secs() / 60;
                 return Err(Failure::new(if locale.starts_with("es") {
-                    format!("Tidal todavía no confirma el acceso. Autorízalo en link.tidal.com y vuelve a seleccionar Ya lo autoricé (el código sigue vigente unos {} min).", remaining.max(1))
+                    format!("Tidal todavía no confirma el acceso. Autorízalo en link.tidal.com y vuelve a seleccionar Comprobar acceso (el código sigue vigente unos {} min).", remaining.max(1))
                 } else {
-                    format!("Tidal has not confirmed the sign-in yet. Approve it on link.tidal.com, then select I approved it again (the code stays valid for about {} min).", remaining.max(1))
+                    format!("Tidal has not confirmed the sign-in yet. Approve it on link.tidal.com, then select Check sign-in again (the code stays valid for about {} min).", remaining.max(1))
                 }));
             }
             std::thread::sleep(Duration::from_secs(interval));
@@ -403,6 +410,7 @@ mod tests {
         let account = Account::new(client, folder.path());
         let page = account.open("en");
         assert_eq!(page["links"][0]["primary"], true);
+        assert_eq!(page["links"][0]["capture"], json!({"until": REDIRECT, "action": "finish", "field": "redirect_url", "user_agent": ANDROID_WEB_VIEW}));
         assert!(page["links"][0]["url"].as_str().unwrap().starts_with(AUTHORIZE));
         assert_eq!(page["form"]["fields"][0]["key"], "redirect_url");
         assert_eq!(page["form"]["fields"][0]["control"]["type"], "text");

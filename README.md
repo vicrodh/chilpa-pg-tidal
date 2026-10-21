@@ -29,8 +29,8 @@ Open the plugin's settings. Two ways are offered:
   explains which address it needs when a different one is pasted, and a bare
   code is accepted too. Passwords stay in the browser.
 - **With a code (AAC only).** Select Sign in with a code instead, open
-  link.tidal.com with the code already filled in, approve access, and select I
-  approved it. Nothing is copied, but Tidal limits this kind of sign-in to AAC
+  link.tidal.com with the code already filled in, approve access, and select Check
+  sign-in. Nothing is copied, but Tidal limits this kind of sign-in to AAC
   320 kbps.
 
 The browser sign-in uses PKCE with the same public application identity as
