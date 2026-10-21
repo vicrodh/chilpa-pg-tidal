@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Build the plugin for this machine and package its executable."""
+import hashlib
+import json
+import pathlib
+import shutil
+import subprocess
+import sys
+import zipfile
+
+root = pathlib.Path(__file__).resolve().parents[1]
+manifest = json.loads((root / "manifest.json").read_text())
+metadata = json.loads(subprocess.check_output(
+    ["cargo", "metadata", "--format-version", "1", "--no-deps", "--locked", "--offline"], cwd=root))
+triple = next(line.split(": ", 1)[1] for line in subprocess.check_output(
+    ["rustc", "-vV"], text=True).splitlines() if line.startswith("host: "))
+
+build = ["cargo", "build", "--locked", "--offline", "--release", "--target", triple,
+         "-p", "chilpa-pg-tidal", "--bin", "plugin"]
+if sys.platform.startswith("linux"):
+    lock = pathlib.Path("/mnt/build/tmp/blitzkriegfc/chilpa-cargo.lock")
+    capped = pathlib.Path.home() / ".local/bin/cargo-capped"
+    if lock.parent.is_dir() and capped.is_file() and shutil.which("flock"):
+        build = ["flock", str(lock), str(capped), *build]
+subprocess.run(build, cwd=root, check=True)
+
+executable = "plugin.exe" if sys.platform == "win32" else "plugin"
+source = pathlib.Path(metadata["target_directory"]) / triple / "release" / executable
+folder = root / "dist" / f'{manifest["version"]}-{triple}'
+if folder.exists():
+    shutil.rmtree(folder)
+folder.mkdir(parents=True)
+shutil.copy2(source, folder / executable)
+names = (executable, "manifest.json", "icon.svg", "folder.svg", "COPYING", "NOTICE", "README.md")
+for name in names[1:]:
+    shutil.copy2(root / name, folder / name)
+if sys.platform == "darwin":
+    subprocess.run(["codesign", "--force", "--sign", "-", str(folder / executable)], check=True)
+    subprocess.run(["codesign", "--verify", "--strict", str(folder / executable)], check=True)
+archive = folder.parent / f"{folder.name}.zip"
+with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as package:
+    for path in (folder / name for name in names):
+        package.write(path, path.name)
+with zipfile.ZipFile(archive) as package:
+    assert archive.stat().st_size <= 32 * 1024 * 1024, "Host compressed package limit"
+    assert sum(p.file_size for p in package.infolist()) <= 64 * 1024 * 1024, "Host expanded package limit"
+    assert all(p.file_size <= 16 * 1024 * 1024 for p in package.infolist()), "Host single-file limit"
+for path in (folder / executable, archive):
+    print(f"{path}\nSHA256 {hashlib.sha256(path.read_bytes()).hexdigest()}")

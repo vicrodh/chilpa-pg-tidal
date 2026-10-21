@@ -1,0 +1,13 @@
+Tidal for Chilpa is distributed under GPL-3.0-or-later; see COPYING.
+
+Reference implementations inspected:
+- hiresTI, yelanxin/hiresTI (GPL-3.0): browser PKCE flow, device-code
+  fallback, quality selection, library pagination and discovery page behavior.
+- LMS TIDAL plugin, michaelherger/lms-plugin-tidal: REST routes, home feed,
+  playlist collection shape, index-based editing and ETag requirements.
+- python-tidal (tidalapi) 0.8.11, Thomas Amland and contributors: the public
+  PKCE and device application identities and the token requests.
+
+Media decoding: Symphonia FLAC decoder (symphonia-bundle-flac and
+symphonia-core 0.5, MPL-2.0). No provider code is added to the Chilpa host.
+Chilpa and the provider remain independently owned projects.

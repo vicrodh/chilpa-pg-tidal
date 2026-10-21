@@ -1,0 +1,40 @@
+{
+  "id": "app.chilpa.tidal",
+  "name": "Tidal",
+  "version": "0.2.0",
+  "api_version": 1,
+  "kind": "source",
+  "runtime": "process",
+  "description": "Your Tidal library, discovery, mixes and playlists inside Chilpa. Requires a Tidal subscription. Sign in in your browser, or with a code on link.tidal.com; account tokens stay in this plugin's private data. Streaming is buffered temporarily, without an offline music library.",
+  "icon": "icon.svg",
+  "capabilities": [
+    {
+      "type": "network",
+      "domains": [
+        "api.tidal.com",
+        "auth.tidal.com",
+        "login.tidal.com",
+        "listen.tidal.com",
+        "tidal.com",
+        "resources.tidal.com",
+        "audio.tidal.com",
+        "sp-pr-fa.audio.tidal.com",
+        "sp-ad-fa.audio.tidal.com",
+        "ab-pr-fa.audio.tidal.com",
+        "ec.tidal.com"
+      ]
+    },
+    {
+      "type": "register_source"
+    },
+    {
+      "type": "register_panel"
+    },
+    {
+      "type": "own_account",
+      "keyring": false
+    }
+  ],
+  "author": "vicrodh",
+  "folder_icon": "folder.svg"
+}
