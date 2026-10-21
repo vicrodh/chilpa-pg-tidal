@@ -29,7 +29,8 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import mock  # noqa: E402
 
-PYTHON = os.environ.get("CHILPA_TIDAL_PYTHON", "/mnt/build/tmp/blitzkriegfc/pg-tidal-venv/bin/python")
+# An interpreter with the Python plugin's requirements (tidalapi, requests).
+PYTHON = os.environ.get("CHILPA_TIDAL_PYTHON", "python3")
 STREAM_URL = re.compile(r"^http://127\.0\.0\.1:\d+/[A-Za-z0-9_-]+$")
 ORDERED_HOSTS = {"api.tidal.com", "auth.tidal.com"}
 BOUNDARY = 44 + mock.SEGMENT_FRAMES[0] * 4
@@ -50,6 +51,8 @@ class Plugin:
     def __init__(self, command, data, base):
         environment = {"PATH": "/usr/bin:/bin", "HOME": str(data), "CHILPA_TIDAL_MOCK": base, "NO_PROXY": "*", "no_proxy": "*",
                        "LANG": "C.UTF-8", "PYTHONIOENCODING": "utf-8", "TZ": "UTC"}
+        if os.environ.get("CHILPA_TIDAL_PYTHON_SOURCE"):
+            environment["CHILPA_TIDAL_PYTHON_SOURCE"] = os.environ["CHILPA_TIDAL_PYTHON_SOURCE"]
         self.process = subprocess.Popen(command + ["--data-dir", str(data)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE, env=environment)
         self.selector = selectors.DefaultSelector()

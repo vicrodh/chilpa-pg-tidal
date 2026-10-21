@@ -8,7 +8,8 @@ import os
 import runpy
 import sys
 
-SOURCE = os.environ.get("CHILPA_TIDAL_PYTHON_SOURCE", "/home/blitzkriegfc/Personal/chilpa/pg-tidal-library/src")
+# The src folder of the Python plugin 0.1.23 checkout.
+SOURCE = os.environ.get("CHILPA_TIDAL_PYTHON_SOURCE") or sys.exit("Set CHILPA_TIDAL_PYTHON_SOURCE to the Python plugin's src folder.")
 base = os.environ["CHILPA_TIDAL_MOCK"].rstrip("/")
 
 import requests.sessions  # noqa: E402

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Build the plugin for this machine and package its executable."""
+import getpass
 import hashlib
 import json
 import os
@@ -19,7 +20,9 @@ triple = next(line.split(": ", 1)[1] for line in subprocess.check_output(
 build = ["cargo", "build", "--locked", "--offline", "--release", "--target", triple,
          "-p", "chilpa-pg-tidal", "--bin", "plugin"]
 if sys.platform.startswith("linux"):
-    lock = pathlib.Path("/mnt/build/tmp/blitzkriegfc/chilpa-cargo.lock")
+    # One Rust build at a time on a shared workstation: CHILPA_BUILD_LOCK names
+    # the lock file every build takes; without it nothing is locked.
+    lock = pathlib.Path(os.environ.get("CHILPA_BUILD_LOCK", "/mnt/build/tmp/" + getpass.getuser() + "/chilpa-cargo.lock"))
     capped = pathlib.Path.home() / ".local/bin/cargo-capped"
     if lock.parent.is_dir() and capped.is_file() and shutil.which("flock"):
         build = ["flock", str(lock), str(capped), *build]

@@ -84,5 +84,8 @@ in, reach the network or play audio.
 `cargo test` runs the unit tests and the FLAC decoder fixtures in
 `tests/fixtures`, which `tools/make-flac-fixtures` regenerates with the
 reference FLAC decoder. `tools/differential/` compares this plugin with the
-earlier Python plugin against a local fake service (build with
-`--features mock-endpoints`, which is never packaged).
+earlier Python plugin against a local fake service: build with
+`--features mock-endpoints` (never packaged), set `CHILPA_TIDAL_PYTHON` to an
+interpreter with the Python plugin's requirements and
+`CHILPA_TIDAL_PYTHON_SOURCE` to its `src` folder, then run
+`python3 tools/differential/compare.py --rust <binary>`.
