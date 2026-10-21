@@ -22,7 +22,11 @@ build = ["cargo", "build", "--locked", "--offline", "--release", "--target", tri
 if sys.platform.startswith("linux"):
     # One Rust build at a time on a shared workstation: CHILPA_BUILD_LOCK names
     # the lock file every build takes; without it nothing is locked.
-    lock = pathlib.Path(os.environ.get("CHILPA_BUILD_LOCK", "/mnt/build/tmp/" + getpass.getuser() + "/chilpa-cargo.lock"))
+    try:
+        default_lock = "/mnt/build/tmp/" + getpass.getuser() + "/chilpa-cargo.lock"
+    except (KeyError, OSError):
+        default_lock = ""
+    lock = pathlib.Path(os.environ.get("CHILPA_BUILD_LOCK") or default_lock or "/nonexistent/lock")
     capped = pathlib.Path.home() / ".local/bin/cargo-capped"
     if lock.parent.is_dir() and capped.is_file() and shutil.which("flock"):
         build = ["flock", str(lock), str(capped), *build]
