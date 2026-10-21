@@ -129,7 +129,7 @@ fn write_ascii_string(text: &str, out: &mut String) {
             '\t' => out.push_str("\\t"),
             '\u{08}' => out.push_str("\\b"),
             '\u{0c}' => out.push_str("\\f"),
-            ch if (ch as u32) < 0x20 || (ch as u32) > 0x7e => {
+            ch if (ch as u32) < 0x20 || (ch as u32) > 0x7f => {
                 let mut units = [0u16; 2];
                 for unit in ch.encode_utf16(&mut units) {
                     out.push_str(&format!("\\u{:04x}", unit));
@@ -191,8 +191,8 @@ mod tests {
 
     #[test]
     fn identities_serialize_with_spaced_separators_and_ascii_escapes() {
-        let value = json!([["track", "7"], ["video", "é"]]);
-        assert_eq!(dumps_spaced(&value), r#"[["track", "7"], ["video", "é"]]"#);
+        let value = json!([["track", "7"], ["video", "\u{e9}"]]);
+        assert_eq!(dumps_spaced(&value), "[[\"track\", \"7\"], [\"video\", \"\\u00e9\"]]");
     }
 
     #[test]

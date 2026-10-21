@@ -56,7 +56,12 @@ pub fn save(path: &Path, value: &Value) -> std::io::Result<()> {
     let text = serde_json::to_vec(value).map_err(std::io::Error::other)?;
     let name = parent.join(format!(".state-{}", uuid::Uuid::new_v4().simple()));
     let result = (|| {
-        let mut file = fs::OpenOptions::new().write(true).create_new(true).open(&name)?;
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        // Account tokens live in these files: only the owner reads them.
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+        let mut file = options.open(&name)?;
         file.write_all(&text)?;
         file.sync_all()?;
         fs::rename(&name, path)
@@ -198,6 +203,12 @@ mod tests {
         assert_eq!(read(&path, json!({})).unwrap(), json!({"a": [1, "b"]}));
         let names: Vec<_> = fs::read_dir(path.parent().unwrap()).unwrap().map(|e| e.unwrap().file_name()).collect();
         assert_eq!(names.len(), 1);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+            assert_eq!(fs::metadata(path.parent().unwrap()).unwrap().permissions().mode() & 0o777, 0o700);
+        }
     }
 
     #[test]

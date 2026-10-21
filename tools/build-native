@@ -2,6 +2,7 @@
 """Build the plugin for this machine and package its executable."""
 import hashlib
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -22,10 +23,14 @@ if sys.platform.startswith("linux"):
     capped = pathlib.Path.home() / ".local/bin/cargo-capped"
     if lock.parent.is_dir() and capped.is_file() and shutil.which("flock"):
         build = ["flock", str(lock), str(capped), *build]
-subprocess.run(build, cwd=root, check=True)
+environment = dict(os.environ)
+# The configured target directory may be shared with another plugin whose
+# executable is also named plugin; this one builds in its own subdirectory.
+environment.setdefault("CARGO_TARGET_DIR", str(pathlib.Path(metadata["target_directory"]) / "chilpa-pg-tidal"))
+subprocess.run(build, cwd=root, check=True, env=environment)
 
 executable = "plugin.exe" if sys.platform == "win32" else "plugin"
-source = pathlib.Path(metadata["target_directory"]) / triple / "release" / executable
+source = pathlib.Path(environment["CARGO_TARGET_DIR"]) / triple / "release" / executable
 folder = root / "dist" / f'{manifest["version"]}-{triple}'
 if folder.exists():
     shutil.rmtree(folder)

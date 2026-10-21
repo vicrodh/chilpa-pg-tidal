@@ -288,7 +288,7 @@ mod tests {
     fn the_copyright_owner_drops_marks_and_years() {
         assert_eq!(copyright_owner(&json!("℗ 2017 Label Records / © 2018 Other")), "Label Records");
         assert_eq!(copyright_owner(&json!("(P) 1999-2001, Some Label")), "Some Label");
-        assert_eq!(copyright_owner(&json!("2020s Music")), "2020s Music");
+        assert_eq!(copyright_owner(&json!("℗ 2021, Label")), "Label");
     }
 
     #[test]

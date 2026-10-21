@@ -436,6 +436,9 @@ impl Catalog {
                 Err(error) if tab == "home" && matches!(error.status, Some(400 | 404)) => self.get("pages/home", &params)?,
                 Err(error) => return Err(error),
             };
+            if !value.is_object() {
+                value = json!({});
+            }
             if personal {
                 let mut seen = Vec::new();
                 let mut cursor = text(at(at(&value, "page"), "cursor"));
