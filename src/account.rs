@@ -7,6 +7,7 @@
 //! page labels it with the AAC limit the provider applies to it.
 
 use crate::client::{Body, Client, DEVICE_CLIENT_ID, DEVICE_CLIENT_SECRET, PKCE_CLIENT_ID, TOKEN};
+use crate::i18n::{tr, tr_with};
 use crate::json::{at, str_at, text};
 use crate::reporting::token_urlsafe;
 use crate::state::{read_or, save, Failure, Result};
@@ -41,9 +42,6 @@ pub struct Account {
     preferences: Mutex<Value>,
 }
 
-fn say(locale: &str, english: &str, spanish: &str) -> String {
-    if locale.starts_with("es") { spanish.to_string() } else { english.to_string() }
-}
 
 fn browser(generation: u64, locale: &str) -> Pending {
     let random: Vec<u8> = (0..32).map(|_| rand::random::<u8>()).collect();
@@ -65,43 +63,32 @@ fn browser(generation: u64, locale: &str) -> Pending {
 fn parse_return(input: &str, expected_state: &str, locale: &str) -> Result<String> {
     let cleaned: String = input.trim().trim_matches(|c: char| c == '"' || c == '\'' || c == '<' || c == '>').split_whitespace().collect();
     if cleaned.is_empty() {
-        return Err(Failure::invalid(say(locale, "Paste the address of the page Tidal shows after you approve access.",
-            "Pega la dirección de la página que Tidal muestra después de que autorizas el acceso.")));
+        return Err(Failure::invalid(tr(locale, "Paste the address of the page Tidal shows after you approve access.")));
     }
     let looks_like_code = !cleaned.contains(['/', '?', '=', '&', ':', '.']) && cleaned.len() >= 8;
     if looks_like_code {
         return Ok(cleaned);
     }
     let address = if cleaned.contains("://") { cleaned.clone() } else { format!("https://{cleaned}") };
-    let parsed = url::Url::parse(&address).map_err(|_| Failure::invalid(say(locale,
-        "That is not a web address. Copy the whole address from the browser's address bar.",
-        "Eso no es una dirección web. Copia la dirección completa de la barra del navegador.")))?;
+    let parsed = url::Url::parse(&address).map_err(|_| Failure::invalid(tr(locale, "That is not a web address. Copy the whole address from the browser's address bar.")))?;
     let host = parsed.host_str().unwrap_or("");
     if host == "login.tidal.com" || host == "link.tidal.com" {
-        return Err(Failure::invalid(say(locale,
-            "That is the address of the sign-in page itself. Sign in and approve access first, then copy the address of the page Tidal shows afterwards.",
-            "Esa es la dirección de la página para iniciar sesión. Primero inicia sesión y autoriza el acceso; después copia la dirección de la página que Tidal muestra al final.")));
+        return Err(Failure::invalid(tr(locale, "That is the address of the sign-in page itself. Sign in and approve access first, then copy the address of the page Tidal shows afterwards.")));
     }
     if host != "tidal.com" && !host.ends_with(".tidal.com") {
-        return Err(Failure::invalid(say(locale,
-            "That address is not from Tidal. Copy the address of the page Tidal shows after you approve access.",
-            "Esa dirección no es de Tidal. Copia la dirección de la página que Tidal muestra después de que autorizas el acceso.")));
+        return Err(Failure::invalid(tr(locale, "That address is not from Tidal. Copy the address of the page Tidal shows after you approve access.")));
     }
     let pairs: Vec<(String, String)> = parsed.query_pairs().into_owned().collect();
     // Some deployed clients omit state; the per-attempt PKCE verifier still binds the code.
     if let Some((_, state)) = pairs.iter().find(|(name, _)| name == "state") {
         if state != expected_state {
-            return Err(Failure::invalid(say(locale,
-                "This address belongs to an earlier sign-in. Select Open Tidal sign-in again and copy the address of the new page.",
-                "Esta dirección es de un intento anterior. Vuelve a seleccionar Abrir Tidal y copia la dirección de la página nueva.")));
+            return Err(Failure::invalid(tr(locale, "This address belongs to an earlier sign-in. Select Open Tidal sign-in again and copy the address of the new page.")));
         }
     }
     let codes: Vec<&String> = pairs.iter().filter(|(name, _)| name == "code").map(|(_, value)| value).collect();
     match codes.as_slice() {
         [code] if !code.is_empty() => Ok((*code).clone()),
-        _ => Err(Failure::invalid(say(locale,
-            "This address has no sign-in code yet. Approve access in Tidal first, then copy the address of the page it shows at the end.",
-            "Esta dirección todavía no trae el código de acceso. Primero autoriza el acceso en Tidal; después copia la dirección de la página que muestra al final."))),
+        _ => Err(Failure::invalid(tr(locale, "This address has no sign-in code yet. Approve access in Tidal first, then copy the address of the page it shows at the end."))),
     }
 }
 
@@ -139,25 +126,23 @@ impl Account {
     fn render(&self, wizard: &mut Wizard, locale: &str, notice: Option<String>) -> Value {
         let (mut fields, mut actions, mut links, mut content, mut values) = (Vec::new(), Vec::new(), Vec::new(), Vec::new(), json!({}));
         let mut notices: Vec<String> = notice.into_iter().collect();
-        let paragraph = |content: &mut Vec<Value>, english: &str, spanish: &str| content.push(json!({"text": say(locale, english, spanish)}));
+        let paragraph = |content: &mut Vec<Value>, english: &str| content.push(json!({"text": tr(locale, english)}));
         let user = self.client.user();
         let (identity, label, phase, done, description);
         if !user.is_empty() {
             wizard.pending = None;
             (identity, phase, done) = ("done", "ready", 2);
-            label = say(locale, "Ready: Tidal is connected", "Listo: Tidal está conectado");
-            description = format!("{}{}", say(locale, "Signed in as ", "Conectado como "), self.client.name());
+            label = tr(locale, "Ready: Tidal is connected");
+            description = tr_with(locale, "Signed in as {name}", &[("name", &self.client.name())]);
             if self.client.device_session() {
-                paragraph(&mut content, "This account signed in with a code, and Tidal limits that kind of sign-in to AAC 320 kbps. For FLAC and Max, sign out and sign in again through the browser.",
-                    "Esta cuenta inició sesión con un código, y Tidal limita ese tipo de acceso a AAC 320 kbps. Para FLAC y Max, cierra sesión y vuelve a entrar desde el navegador.");
+                paragraph(&mut content, "This account signed in with a code, and Tidal limits that kind of sign-in to AAC 320 kbps. For FLAC and Max, sign out and sign in again through the browser.");
             }
-            paragraph(&mut content, "Playback quality. The actual resolution comes from each stream.",
-                "Calidad de reproducción. La resolución real la dice cada stream.");
+            paragraph(&mut content, "Playback quality. The actual resolution comes from each stream.");
             let chosen = self.quality();
             for (quality, name) in QUALITIES {
                 actions.push(json!({"key": format!("quality_{quality}"), "label": format!("{}{name}", if chosen == quality { "• " } else { "" }), "fields": []}));
             }
-            actions.push(json!({"key": "sign_out", "label": say(locale, "Sign out", "Cerrar sesión"), "fields": []}));
+            actions.push(json!({"key": "sign_out", "label": tr(locale, "Sign out"), "fields": []}));
         } else {
             let expired = match &wizard.pending {
                 Some(Pending::Browser { expires, .. }) | Some(Pending::Device { expires, .. }) => Instant::now() >= *expires,
@@ -168,10 +153,9 @@ impl Account {
                 wizard.pending = None;
                 wizard.address.clear();
                 notices.push(if device {
-                    say(locale, "The code expired. This is the browser sign-in again; you can ask for a new code below.",
-                        "El código caducó. Esta es otra vez la entrada desde el navegador; abajo puedes pedir un código nuevo.")
+                    tr(locale, "The code expired. This is the browser sign-in again; you can ask for a new code below.")
                 } else {
-                    say(locale, "The previous sign-in page expired. Open the new one below.", "La página de acceso anterior caducó. Abre la nueva desde aquí.")
+                    tr(locale, "The previous sign-in page expired. Open the new one below.")
                 });
             }
             if wizard.pending.is_none() {
@@ -180,39 +164,33 @@ impl Account {
             match wizard.pending.as_ref().unwrap() {
                 Pending::Browser { url, .. } => {
                     (identity, phase, done) = ("browser", "pending", 0);
-                    label = say(locale, "Step 1 of 2: authorize your account", "Paso 1 de 2: autoriza tu cuenta");
-                    description = say(locale, "A Tidal subscription is required for full playback. Your password stays in the browser.",
-                        "La reproducción completa requiere una suscripción a Tidal. Tu contraseña se queda en el navegador.");
-                    paragraph(&mut content, "1. Select Open Tidal sign-in, sign in and approve access. If Chilpa opens Tidal in a window of its own, the sign-in finishes there and nothing else is needed.",
-                        "1. Selecciona Abrir Tidal, inicia sesión y autoriza el acceso. Si Chilpa abre Tidal en una ventana propia, el acceso termina ahí y no hace falta nada más.");
-                    paragraph(&mut content, "2. If it opens in your browser, Tidal ends on a page that may say Oops or stay blank. That is expected: the address of that page carries the sign-in code.",
-                        "2. Si se abre en tu navegador, Tidal termina en una página que puede decir Oops o quedarse en blanco. Así debe ser: la dirección de esa página trae el código de acceso.");
-                    paragraph(&mut content, "3. Copy the whole address of that page from the browser's address bar (click it, then Ctrl+A and Ctrl+C), paste it below and select Finish sign-in.",
-                        "3. Copia la dirección completa de esa página desde la barra del navegador (haz clic en ella, luego Ctrl+A y Ctrl+C), pégala abajo y selecciona Terminar.");
+                    label = tr(locale, "Step 1 of 2: authorize your account");
+                    description = tr(locale, "A Tidal subscription is required for full playback. Your password stays in the browser.");
+                    paragraph(&mut content, "1. Select Open Tidal sign-in, sign in and approve access. If Chilpa opens Tidal in a window of its own, the sign-in finishes there and nothing else is needed.");
+                    paragraph(&mut content, "2. If it opens in your browser, Tidal ends on a page that may say Oops or stay blank. That is expected: the address of that page carries the sign-in code.");
+                    paragraph(&mut content, "3. Copy the whole address of that page from the browser's address bar (click it, then Ctrl+A and Ctrl+C), paste it below and select Finish sign-in.");
                     // A host that can open the page in its own window stops at the
                     // return address and submits it as the finish action; any other
                     // host opens the browser and the person pastes the address.
-                    links.push(json!({"label": say(locale, "Open Tidal sign-in", "Abrir Tidal"), "url": url, "primary": true,
+                    links.push(json!({"label": tr(locale, "Open Tidal sign-in"), "url": url, "primary": true,
                         "capture": {"until": REDIRECT, "action": "finish", "field": "redirect_url"}}));
-                    fields.push(json!({"key": "redirect_url", "label": say(locale, "Address of the page Tidal shows at the end", "Dirección de la página que Tidal muestra al final"),
+                    fields.push(json!({"key": "redirect_url", "label": tr(locale, "Address of the page Tidal shows at the end"),
                         "required": true, "description": "", "control": {"type": "text", "max_length": 8192}}));
                     values["redirect_url"] = json!(wizard.address);
-                    actions.push(json!({"key": "finish", "label": say(locale, "Finish sign-in", "Terminar"), "fields": ["redirect_url"]}));
-                    actions.push(json!({"key": "restart", "label": say(locale, "New sign-in page", "Nueva página de acceso"), "fields": []}));
-                    actions.push(json!({"key": "device", "label": say(locale, "Sign in with a code instead (AAC only)", "Entrar con un código (solo AAC)"), "fields": []}));
+                    actions.push(json!({"key": "finish", "label": tr(locale, "Finish sign-in"), "fields": ["redirect_url"]}));
+                    actions.push(json!({"key": "restart", "label": tr(locale, "New sign-in page"), "fields": []}));
+                    actions.push(json!({"key": "device", "label": tr(locale, "Sign in with a code instead (AAC only)"), "fields": []}));
                 }
                 Pending::Device { user_code, link, .. } => {
                     (identity, phase, done) = ("device", "pending", 0);
-                    label = say(locale, "Step 1 of 2: authorize with a code", "Paso 1 de 2: autoriza con un código");
-                    description = say(locale, "Tidal limits this sign-in to AAC 320 kbps. For FLAC and Max, use the browser sign-in.",
-                        "Tidal limita este acceso a AAC 320 kbps. Para FLAC y Max, usa la entrada desde el navegador.");
-                    paragraph(&mut content, &format!("1. Select Open link.tidal.com. The code {user_code} is already filled in; if Tidal asks for it, type it."),
-                        &format!("1. Selecciona Abrir link.tidal.com. El código {user_code} ya va incluido; si Tidal te lo pide, escríbelo."));
-                    paragraph(&mut content, "2. Sign in and approve access.", "2. Inicia sesión y autoriza el acceso.");
-                    paragraph(&mut content, "3. Come back here and select Check sign-in.", "3. Regresa aquí y selecciona Comprobar acceso.");
-                    links.push(json!({"label": say(locale, "Open link.tidal.com", "Abrir link.tidal.com"), "url": link, "primary": true}));
-                    actions.push(json!({"key": "poll", "label": say(locale, "Check sign-in", "Comprobar acceso"), "fields": []}));
-                    actions.push(json!({"key": "restart", "label": say(locale, "Cancel", "Cancelar"), "fields": []}));
+                    label = tr(locale, "Step 1 of 2: authorize with a code");
+                    description = tr(locale, "Tidal limits this sign-in to AAC 320 kbps. For FLAC and Max, use the browser sign-in.");
+                    content.push(json!({"text": tr_with(locale, "1. Select Open link.tidal.com. The code {code} is already filled in; if Tidal asks for it, type it.", &[("code", user_code)])}));
+                    paragraph(&mut content, "2. Sign in and approve access.");
+                    paragraph(&mut content, "3. Come back here and select Check sign-in.");
+                    links.push(json!({"label": tr(locale, "Open link.tidal.com"), "url": link, "primary": true}));
+                    actions.push(json!({"key": "poll", "label": tr(locale, "Check sign-in"), "fields": []}));
+                    actions.push(json!({"key": "restart", "label": tr(locale, "Cancel"), "fields": []}));
                 }
             }
         }
@@ -225,7 +203,7 @@ impl Account {
     pub fn submit(&self, params: &Value, locale: &str) -> Value {
         let mut wizard = self.wizard.lock().unwrap();
         if at(params, "revision") != &json!(wizard.revision) {
-            let notice = say(locale, "Settings changed. Refresh before trying again.", "La configuración cambió. Actualiza antes de volver a intentarlo.");
+            let notice = tr(locale, "Settings changed. Refresh before trying again.");
             return self.render(&mut wizard, locale, Some(notice));
         }
         wizard.revision += 1;
@@ -275,13 +253,12 @@ impl Account {
     fn finish_browser(&self, wizard: &mut Wizard, locale: &str) -> Result<()> {
         let Some(Pending::Browser { verifier, unique_key, state, expires, generation, .. }) = &wizard.pending else {
             wizard.pending = Some(browser(self.client.generation(), locale));
-            return Err(Failure::new(say(locale, "Open Tidal sign-in first.", "Primero abre Tidal para iniciar sesión.")));
+            return Err(Failure::new(tr(locale, "Open Tidal sign-in first.")));
         };
         if Instant::now() >= *expires {
             wizard.pending = Some(browser(self.client.generation(), locale));
             wizard.address.clear();
-            return Err(Failure::new(say(locale, "This sign-in page expired. Open the new one and try again.",
-                "Esta página de acceso caducó. Abre la nueva e inténtalo otra vez.")));
+            return Err(Failure::new(tr(locale, "This sign-in page expired. Open the new one and try again.")));
         }
         let code = parse_return(&wizard.address, state, locale)?;
         let form = vec![("code".into(), code), ("client_id".into(), PKCE_CLIENT_ID.into()), ("grant_type".into(), "authorization_code".into()),
@@ -293,9 +270,7 @@ impl Account {
             // A code works once; the next attempt needs a new page and verifier.
             wizard.pending = Some(browser(self.client.generation(), locale));
             wizard.address.clear();
-            return Err(Failure::new(say(locale,
-                "Tidal did not accept this code. A code works once and only for a few minutes: select Open Tidal sign-in again and copy the address of the new page.",
-                "Tidal no aceptó este código. Cada código sirve una sola vez y solo unos minutos: vuelve a seleccionar Abrir Tidal y copia la dirección de la página nueva.")));
+            return Err(Failure::new(tr(locale, "Tidal did not accept this code. A code works once and only for a few minutes: select Open Tidal sign-in again and copy the address of the new page.")));
         }
         let token = Client::checked(reply)?.json()?;
         self.client.accept(&token, generation, false)?;
@@ -309,7 +284,7 @@ impl Account {
         let answer = Client::checked(self.client.send("POST", DEVICE_AUTHORIZATION, &[], &[], Body::Form(form), None)?)?.json()?;
         let (device_code, user_code) = (text(at(&answer, "deviceCode")), text(at(&answer, "userCode")));
         if device_code.is_empty() || user_code.is_empty() {
-            return Err(Failure::new(say(locale, "Tidal did not return a sign-in code. Try again.", "Tidal no devolvió un código de acceso. Inténtalo otra vez.")));
+            return Err(Failure::new(tr(locale, "Tidal did not return a sign-in code. Try again.")));
         }
         let complete = text(at(&answer, "verificationUriComplete"));
         let base = if complete.is_empty() { format!("link.tidal.com/{user_code}") } else { complete };
@@ -323,7 +298,7 @@ impl Account {
     /// Asks whether the code was approved, for up to twenty seconds.
     fn poll_device(&self, wizard: &mut Wizard, locale: &str) -> Result<()> {
         let Some(Pending::Device { device_code, interval, expires, generation, .. }) = &wizard.pending else {
-            return Err(Failure::new(say(locale, "Ask for a code first.", "Primero pide un código.")));
+            return Err(Failure::new(tr(locale, "Ask for a code first.")));
         };
         let (device_code, mut interval, expires, generation) = (device_code.clone(), *interval, *expires, *generation);
         let until = (Instant::now() + Duration::from_secs(20)).min(expires);
@@ -344,20 +319,15 @@ impl Account {
                 "slow_down" => interval += 2,
                 "expired_token" => {
                     wizard.pending = Some(browser(self.client.generation(), locale));
-                    return Err(Failure::new(say(locale, "The code expired. Ask for a new one, or use the browser sign-in.",
-                        "El código caducó. Pide uno nuevo o entra desde el navegador.")));
+                    return Err(Failure::new(tr(locale, "The code expired. Ask for a new one, or use the browser sign-in.")));
                 }
-                _ => return Client::checked(reply).map(|_| ()).and(Err(Failure::new(say(locale,
-                    "Tidal did not accept the sign-in. Try again.", "Tidal no aceptó el acceso. Inténtalo otra vez.")))),
+                _ => return Client::checked(reply).map(|_| ()).and(Err(Failure::new(tr(locale, "Tidal did not accept the sign-in. Try again.")))),
             }
             let next = Instant::now() + Duration::from_secs(interval);
             if next >= until {
                 let remaining = expires.saturating_duration_since(Instant::now()).as_secs() / 60;
-                return Err(Failure::new(if locale.starts_with("es") {
-                    format!("Tidal todavía no confirma el acceso. Autorízalo en link.tidal.com y vuelve a seleccionar Comprobar acceso (el código sigue vigente unos {} min).", remaining.max(1))
-                } else {
-                    format!("Tidal has not confirmed the sign-in yet. Approve it on link.tidal.com, then select Check sign-in again (the code stays valid for about {} min).", remaining.max(1))
-                }));
+                return Err(Failure::new(tr_with(locale, "Tidal has not confirmed the sign-in yet. Approve it on link.tidal.com, then select Check sign-in again (the code stays valid for about {minutes} min).",
+                    &[("minutes", &remaining.max(1).to_string())])));
             }
             std::thread::sleep(Duration::from_secs(interval));
         }

@@ -4,6 +4,7 @@ use crate::client::Client;
 use crate::credits::Credits;
 use crate::descriptions::description;
 use crate::folders::collection as folder_collection;
+use crate::i18n::{tr, tr_with};
 use crate::items::{card, ident, reference, shelf, unbox};
 use crate::json::{at, dumps_spaced, first, fold, int_at, list_at, param_int, quote_all, sha256_hex, str_at, text, truthy, unquote};
 use crate::state::{Cache, Failure, Result};
@@ -190,13 +191,13 @@ impl Catalog {
             }
             let tracks = self.rows(&self.get(&format!("{category}s/{id}/radio"), &json!({"limit": 100}))?, Some("track"));
             let total = tracks.len();
-            return Ok(json!({"playlist": {"ref": at(params, "ref"), "title": "Radio", "kind": "playlist"}, "tracks": tracks, "total": total}));
+            return Ok(json!({"playlist": {"ref": at(params, "ref"), "title": tr(&self.locale(), "Radio"), "kind": "playlist"}, "tracks": tracks, "total": total}));
         }
         if kind == "mix" {
             let page = self.get("pages/mix", &json!({"mixId": key, "deviceType": "BROWSER"}))?;
             let info = list_at(&page, "rows").iter().flat_map(|row| list_at(row, "modules"))
                 .map(|module| at(module, "mix")).find(|mix| mix.is_object()).cloned()
-                .unwrap_or_else(|| json!({"id": key, "title": "Mix"}));
+                .unwrap_or_else(|| json!({"id": key, "title": tr(&self.locale(), "Mix")}));
             let rows = self.rows(&Value::Array(self.all_cached("mix", &key, &format!("mixes/{key}/items"))?), Some("track"));
             let total = rows.len();
             return Ok(json!({"playlist": card(&info, Some("mix"), ""), "tracks": rows, "total": total}));
@@ -263,7 +264,7 @@ impl Catalog {
                 .map(|artist| json!({"id": at(artist, "id"), "name": at(artist, "name")})).collect();
             result["credits"] = json!(credits);
             let similar = self.rows(&self.optional(&format!("albums/{key}/similar"), &json!({}))?, Some("album"));
-            result["shelves"] = json!([shelf("similar", "Related releases", "album", similar, None)]);
+            result["shelves"] = json!([shelf("similar", &tr(&self.locale(), "Related releases"), "album", similar, None)]);
             return Ok(result);
         }
         if let Some(name) = r.strip_prefix("label:") {
@@ -274,11 +275,11 @@ impl Catalog {
             let rows: Vec<Value> = self.rows(&raw, Some("album")).into_iter()
                 .filter(|row| fold(str_at(row, "label")) == fold(&name)).collect();
             return Ok(json!({"title": name, "header": {"kind": "label", "ref": r, "title": name},
-                "shelves": [shelf("releases", "Releases", "album", rows, None)]}));
+                "shelves": [shelf("releases", &tr(&self.locale(), "Releases"), "album", rows, None)]}));
         }
         if r.starts_with("library:") {
             let kind = r.split(':').nth(1).unwrap_or("");
-            let mut result = json!({"title": title_case(kind)});
+            let mut result = json!({"title": tr(&self.locale(), &title_case(kind))});
             if let Value::Object(fields) = self.library(&json!({"kind": kind, "limit": 500}))? {
                 for (field, value) in fields {
                     result[field] = value;
@@ -310,7 +311,7 @@ impl Catalog {
             // The next page starts after what came, not a fixed hundred on.
             let after = offset + rows.len() as i64;
             let next = (!rows.is_empty() && after < int_at(&page, "totalNumberOfItems", 0)).then(|| format!("artist:{key}:{group}:{after}"));
-            return Ok(json!({"title": title_case(group), "items": rows, "next": next}));
+            return Ok(json!({"title": tr(&self.locale(), &title_case(group)), "items": rows, "next": next}));
         }
         let raw = self.get(&format!("artists/{key}"), &json!({}))?;
         let mut header = card(&raw, Some("artist"), "");
@@ -331,29 +332,30 @@ impl Catalog {
         header["links"] = json!(links);
         let title = text(&header["title"]);
         let image = header["image"].clone();
-        let mut shelves = vec![shelf("tracks", "Popular tracks", "track",
+        let locale = self.locale();
+        let mut shelves = vec![shelf("tracks", &tr(&locale, "Popular tracks"), "track",
             self.rows(&self.optional(&format!("artists/{key}/toptracks"), &json!({"limit": 20}))?, Some("track")), None)];
         for (group, group_title, filter) in [("albums", "Albums", Value::Null), ("singles", "EPs and singles", json!("EPSANDSINGLES")), ("appears", "Appears on", json!("COMPILATIONS"))] {
             let page = self.optional(&format!("artists/{key}/albums"), &json!({"limit": 30, "filter": filter}))?;
             let rows = self.rows(&page, Some("album"));
             let more = ((rows.len() as i64) < int_at(&page, "totalNumberOfItems", 0)).then(|| format!("artist:{key}:{group}:{}", rows.len()));
-            shelves.push(shelf(group, group_title, "album", rows, more));
+            shelves.push(shelf(group, &tr(&locale, group_title), "album", rows, more));
         }
         // The newest record is the latest release.
         let newest = self.rows(&self.optional(&format!("artists/{key}/albums"), &json!({"limit": 1, "order": "DATE", "orderDirection": "DESC"}))?, Some("album"));
         if let Some(latest) = newest.into_iter().next() {
-            shelves.push(shelf("latest", "Latest release", "album", vec![latest], None));
+            shelves.push(shelf("latest", &tr(&locale, "Latest release"), "album", vec![latest], None));
         }
-        shelves.push(shelf("similar", "Similar artists", "artist",
+        shelves.push(shelf("similar", &tr(&locale, "Similar artists"), "artist",
             self.rows(&self.optional(&format!("artists/{key}/similar"), &json!({"limit": 20}))?, Some("artist")), None));
-        shelves.push(shelf("radio", "Artist radio", "playlist",
-            vec![json!({"kind": "playlist", "ref": format!("radio:artist:{key}"), "title": format!("{title} Radio"), "image": image})], None));
+        shelves.push(shelf("radio", &tr(&locale, "Artist radio"), "playlist",
+            vec![json!({"kind": "playlist", "ref": format!("radio:artist:{key}"), "title": tr_with(&locale, "{name} Radio", &[("name", &title)]), "image": image})], None));
         // The artist's mix, when the service made one.
         let own_mix = at(at(&raw, "mixes"), "ARTIST_MIX");
         let mix_id = if truthy(own_mix) { own_mix.clone() } else { at(&self.optional(&format!("artists/{key}/mix"), &json!({}))?, "id").clone() };
         if truthy(&mix_id) {
-            shelves.push(shelf("mix", "Artist mix", "playlist",
-                vec![json!({"kind": "playlist", "ref": format!("mix:{}", text(&mix_id)), "title": format!("{title} Mix"), "image": image})], None));
+            shelves.push(shelf("mix", &tr(&locale, "Artist mix"), "playlist",
+                vec![json!({"kind": "playlist", "ref": format!("mix:{}", text(&mix_id)), "title": tr_with(&locale, "{name} Mix", &[("name", &title)]), "image": image})], None));
         }
         // Who influenced the artist and whom it influenced: the module page
         // lists them as rows of artists under those titles.
@@ -373,7 +375,7 @@ impl Catalog {
             }
         }
         if !influences.is_empty() {
-            shelves.push(shelf("influences", "Influences", "artist", influences, None));
+            shelves.push(shelf("influences", &tr(&locale, "Influences"), "artist", influences, None));
         }
         Ok(json!({"title": title, "header": header, "shelves": shelves}))
     }
@@ -394,7 +396,8 @@ impl Catalog {
             "decades" => "",
             _ => return Err(Failure::invalid("Unknown discovery tab.")),
         };
-        let params = json!({"deviceType": "BROWSER", "platform": "WEB", "limit": 50, "locale": self.locale()});
+        let locale = self.locale();
+        let params = json!({"deviceType": "BROWSER", "platform": "WEB", "limit": 50, "locale": locale});
         if tab == "decades" {
             let decade = parts.get(2).copied().unwrap_or(DECADES[0]);
             if !DECADES.contains(&decade) {
@@ -404,7 +407,7 @@ impl Catalog {
             let mut document = self.document(&self.get(&path, &params)?, &path);
             let mut tabs: Vec<Value> = DECADES.iter().map(|label| json!({"title": label, "ref": format!("discover:decades:{label}"), "active": *label == decade})).collect();
             tabs.extend(list_at(&document, "tabs").iter().cloned());
-            for (field, value) in [("title", json!("Decades")), ("tab", json!(tab)), ("personal", json!(false)), ("genre_filter", json!("")), ("genres", json!([])), ("tabs", json!(tabs))] {
+            for (field, value) in [("title", json!(tr(&locale, "Decades"))), ("tab", json!(tab)), ("personal", json!(false)), ("genre_filter", json!("")), ("genres", json!([])), ("tabs", json!(tabs))] {
                 document[field] = value;
             }
             return Ok(document);
@@ -423,11 +426,11 @@ impl Catalog {
             for genre in selected {
                 for (kind, title) in [("albums", "Releases"), ("playlists", "Playlists")] {
                     let value = self.get(&format!("genres/{}/{kind}", quote_all(genre)), &json!({"limit": 100}))?;
-                    sections.push(shelf(&format!("genre:{genre}:{kind}"), &format!("{genre} · {title}"), &kind[..kind.len() - 1],
+                    sections.push(shelf(&format!("genre:{genre}:{kind}"), &format!("{genre} · {}", tr(&locale, title)), &kind[..kind.len() - 1],
                         self.rows(&value, Some(&kind[..kind.len() - 1])), None));
                 }
             }
-            json!({"title": "Music", "shelves": sections})
+            json!({"title": tr(&locale, "Music"), "shelves": sections})
         } else {
             let personal = tab == "home" || tab == "foryou";
             let fetched = if personal { self.get_v2(path, &params) } else { self.get(path, &params) };
@@ -471,9 +474,9 @@ impl Catalog {
         let active = if tab == "foryou" { "home" } else { tab };
         let mut tabs: Vec<Value> = [("home", "For You"), ("new", "New"), ("top", "Top"), ("editors", "Staff Picks"),
             ("explore", "Explore"), ("hires", "Hi-Res"), ("mixes", "My Mixes"), ("genres", "Genres"), ("decades", "Decades"), ("moods", "Moods")]
-            .iter().map(|(key, title)| json!({"title": title, "ref": format!("discover:{key}"), "active": *key == active})).collect();
+            .iter().map(|(key, title)| json!({"title": tr(&locale, title), "ref": format!("discover:{key}"), "active": *key == active})).collect();
         tabs.extend(list_at(&document, "tabs").iter().cloned());
-        for (field, value) in [("title", json!("Music")), ("tab", json!(tab)), ("personal", json!(["home", "foryou", "mixes"].contains(&tab))),
+        for (field, value) in [("title", json!(tr(&locale, "Music"))), ("tab", json!(tab)), ("personal", json!(["home", "foryou", "mixes"].contains(&tab))),
                                ("genre_filter", json!(chosen)), ("genres", json!(genres_out)), ("tabs", json!(tabs))] {
             document[field] = value;
         }

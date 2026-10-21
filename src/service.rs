@@ -109,7 +109,7 @@ impl Service {
                         result["shelves"] = json!([]);
                     }
                     result["shelves"].as_array_mut().unwrap().insert(0,
-                        json!({"id": "chilpa-history", "title": "Recently played in Chilpa", "kind": "track", "items": history}));
+                        json!({"id": "chilpa-history", "title": crate::i18n::tr(&self.locale(), "Recently played in Chilpa"), "kind": "track", "items": history}));
                 }
                 Ok(result)
             }

@@ -8,6 +8,7 @@ pub mod descriptions;
 pub mod enrichment;
 pub mod flac;
 pub mod folders;
+pub mod i18n;
 pub mod items;
 pub mod json;
 pub mod links;
