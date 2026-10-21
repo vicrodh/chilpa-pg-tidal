@@ -21,9 +21,6 @@ pub const REDIRECT: &str = "https://tidal.com/android/login/auth";
 pub const AUTHORIZE: &str = "https://login.tidal.com/authorize";
 pub const DEVICE_AUTHORIZATION: &str = "https://auth.tidal.com/v1/oauth2/device_authorization";
 const BROWSER_LIFETIME: Duration = Duration::from_secs(30 * 60);
-/// The page renders its Android flow, whose last step is the return address,
-/// for an Android web view.
-pub const ANDROID_WEB_VIEW: &str = "Mozilla/5.0 (Linux; Android 12; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Safari/537.36";
 const QUALITIES: [(&str, &str); 3] = [("HI_RES_LOSSLESS", "Max · Hi-Res FLAC"), ("LOSSLESS", "High · FLAC"), ("HIGH", "AAC 320 kbps")];
 
 enum Pending {
@@ -196,7 +193,7 @@ impl Account {
                     // return address and submits it as the finish action; any other
                     // host opens the browser and the person pastes the address.
                     links.push(json!({"label": say(locale, "Open Tidal sign-in", "Abrir Tidal"), "url": url, "primary": true,
-                        "capture": {"until": REDIRECT, "action": "finish", "field": "redirect_url", "user_agent": ANDROID_WEB_VIEW}}));
+                        "capture": {"until": REDIRECT, "action": "finish", "field": "redirect_url"}}));
                     fields.push(json!({"key": "redirect_url", "label": say(locale, "Address of the page Tidal shows at the end", "Dirección de la página que Tidal muestra al final"),
                         "required": true, "description": "", "control": {"type": "text", "max_length": 8192}}));
                     values["redirect_url"] = json!(wizard.address);
@@ -410,7 +407,7 @@ mod tests {
         let account = Account::new(client, folder.path());
         let page = account.open("en");
         assert_eq!(page["links"][0]["primary"], true);
-        assert_eq!(page["links"][0]["capture"], json!({"until": REDIRECT, "action": "finish", "field": "redirect_url", "user_agent": ANDROID_WEB_VIEW}));
+        assert_eq!(page["links"][0]["capture"], json!({"until": REDIRECT, "action": "finish", "field": "redirect_url"}));
         assert!(page["links"][0]["url"].as_str().unwrap().starts_with(AUTHORIZE));
         assert_eq!(page["form"]["fields"][0]["key"], "redirect_url");
         assert_eq!(page["form"]["fields"][0]["control"]["type"], "text");
