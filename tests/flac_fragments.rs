@@ -22,3 +22,28 @@ fn every_fixture_decodes_to_the_reference_samples() {
         assert!(tidal_plugin::flac::decode(data, bits, rate, frames + 1).is_err(), "{name}: a short fragment must be refused");
     }
 }
+
+/// Decoding cost per second of audio, for the streams in `CHILPA_FLAC_BENCH`
+/// (a folder of `seg-<rate>-<bits>.flac` files). Run with `--ignored --nocapture`.
+#[test]
+#[ignore]
+fn decoding_cost_per_second_of_audio() {
+    let Some(folder) = std::env::var_os("CHILPA_FLAC_BENCH") else { return };
+    let mut paths: Vec<_> = std::fs::read_dir(folder).unwrap().map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "flac")).collect();
+    paths.sort();
+    for path in paths {
+        let data = std::fs::read(&path).unwrap();
+        let (_, bits, rate) = tidal_plugin::flac::stream_info(&data).unwrap();
+        let info = &data[8..42];
+        let total = ((u64::from(info[13]) & 0x0f) << 32) | u64::from(u32::from_be_bytes([info[14], info[15], info[16], info[17]]));
+        let mut best = f64::MAX;
+        for _ in 0..5 {
+            let started = std::time::Instant::now();
+            tidal_plugin::flac::decode(data.clone(), bits, rate, total).unwrap();
+            best = best.min(started.elapsed().as_secs_f64());
+        }
+        let seconds = total as f64 / f64::from(rate);
+        println!("{}: {:.1} ms for {:.1} s of audio, {:.2} ms per second", path.file_name().unwrap().to_string_lossy(), best * 1000.0, seconds, best * 1000.0 / seconds);
+    }
+}
