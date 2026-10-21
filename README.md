@@ -75,6 +75,16 @@ python3 tools/build-native
 python3 tools/smoke-native dist/0.2.0-x86_64-unknown-linux-gnu
 ```
 
+The published Linux package is built on Debian 12, so it needs glibc 2.36 or
+newer, not the glibc of the build machine:
+
+```sh
+docker build -f tools/package-linux.Dockerfile -t chilpa-tidal-builder .
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e CARGO_HOME=/tmp/cargo \
+  -e CARGO_TARGET_DIR=/tmp/target -v "$PWD:/source" chilpa-tidal-builder \
+  sh -c 'cargo fetch --locked && python3 tools/build-native'
+```
+
 `build-native` builds the release executable for the host target and writes
 `dist/<version>-<target>.zip`. `smoke-native` runs the packaged process in a
 temporary profile inside Bubblewrap (or with `--direct`, as a plain process)
