@@ -1,7 +1,7 @@
 {
   "id": "app.chilpa.tidal",
   "name": "Tidal",
-  "version": "0.2.0",
+  "version": "0.2.7",
   "api_version": 1,
   "kind": "source",
   "runtime": "process",

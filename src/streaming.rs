@@ -448,7 +448,8 @@ impl Streams {
         let (bits, rate) = (at(&raw, "bitDepth").clone(), at(&raw, "sampleRate").clone());
         let audio_mode = match raw.get("audioMode") { Some(mode) => mode.clone(), None => json!("STEREO") };
         let mut result = json!({"preview": false, "delivery": "direct", "normalization": normalization(&raw, &Value::Null),
-            "reporting": {"quality": at(&raw, "audioQuality"), "audio_mode": audio_mode}});
+            "reporting": {"quality": at(&raw, "audioQuality"), "audio_mode": audio_mode,
+                "actual_product_id": raw.get("trackId").cloned().unwrap_or(json!(key))}});
         let mime = str_at(&raw, "manifestMimeType");
         if mime.contains("dash+xml") {
             let bits = bits.as_u64().filter(|bits| *bits > 0).ok_or_else(|| Failure::new("Tidal did not report the stream's bit depth."))?;

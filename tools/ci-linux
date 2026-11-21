@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+cargo fetch --locked
+cargo test --locked --offline
+python3 tools/build-native
+python3 tools/smoke-native dist/*-x86_64-unknown-linux-gnu --direct

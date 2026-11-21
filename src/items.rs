@@ -127,8 +127,10 @@ pub fn card(raw: &Value, kind: Option<&str>, user: &str) -> Value {
             title = format!("{title} ({version})");
         }
     }
-    let artist = if truthy(at(value, "artist")) { at(value, "artist").clone() }
-        else { list_at(value, "artists").first().cloned().unwrap_or(json!({})) };
+    let artists = list_at(value, "artists");
+    let artist = artists.iter().find(|artist| first(artist, &["type", "artistType"]) == "MAIN").cloned()
+        .unwrap_or_else(|| if truthy(at(value, "artist")) { at(value, "artist").clone() }
+            else { artists.first().cloned().unwrap_or(json!({})) });
     let album = if truthy(at(value, "album")) { at(value, "album").clone() } else { json!({}) };
     let mut result = Map::new();
     result.insert("kind".into(), json!(if kind == "mix" { "playlist" } else { kind }));
@@ -138,6 +140,11 @@ pub fn card(raw: &Value, kind: Option<&str>, user: &str) -> Value {
     result.insert("artist".into(), json!(text(at(&artist, "name"))));
     result.insert("description".into(), json!(description(&text_or_empty(at(value, "description")))));
     result.insert("explicit".into(), json!(truthy(at(value, "explicit"))));
+    if kind == "track" || kind == "album" {
+        if let Some(ai) = at(value, "ai").as_bool() {
+            result.insert("ai_generated".into(), json!(ai));
+        }
+    }
     if kind == "album" || kind == "track" {
         let mut genres = genre_names(value);
         if genres.is_empty() && kind == "track" {
@@ -303,5 +310,31 @@ mod tests {
         let raw = json!({"uuid": "p", "title": "List", "creator": {"id": 5}, "type": "USER"});
         assert_eq!(card(&raw, Some("playlist"), "5")["editable"], true);
         assert_eq!(card(&raw, Some("playlist"), "6")["editable"], false);
+    }
+
+    #[test]
+    fn ai_labels_preserve_true_false_and_unknown_on_tracks_and_albums() {
+        for kind in ["track", "album"] {
+            for ai in [json!(true), json!(false), Value::Null, json!("true"), json!(1)] {
+                let raw = json!({"item": {"id": 7, "title": "Record", "ai": ai}});
+                let result = card(&raw, Some(kind), "");
+                assert_eq!(result.get("ai_generated"), ai.as_bool().map(|_| &ai));
+            }
+            assert!(card(&json!({"id": 7}), Some(kind), "").get("ai_generated").is_none());
+        }
+        let track = card(&json!({"id": 7, "album": {"id": 4, "ai": true}}), Some("track"), "");
+        assert!(track.get("ai_generated").is_none(), "an album label does not establish each track's label");
+        assert!(card(&json!({"id": 7, "ai": true}), Some("artist"), "").get("ai_generated").is_none());
+    }
+
+    #[test]
+    fn main_artist_name_and_reference_stay_paired_when_a_guest_comes_first() {
+        for field in ["type", "artistType"] {
+            let mut main = json!({"id": 3, "name": "Main Artist"});
+            main[field] = json!("MAIN");
+            let track = card(&json!({"id": 7, "artists": [{"id": 2, "name": "Guest", "type": "FEATURED"}, main]}), Some("track"), "");
+            assert_eq!(track["artist"], "Main Artist");
+            assert_eq!(track["artist_ref"], "artist:3");
+        }
     }
 }

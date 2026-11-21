@@ -143,7 +143,7 @@ dependencies = [
 
 [[package]]
 name = "chilpa-pg-tidal"
-version = "0.2.0"
+version = "0.2.7"
 dependencies = [
  "base64",
  "chrono",

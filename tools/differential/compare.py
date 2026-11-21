@@ -58,8 +58,12 @@ class Plugin:
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.process.stdout, selectors.EVENT_READ)
         self.serial = 0
+        # The Rust plugin takes its folders from initialize, as the host sends them.
+        self.folders = {"data_dir": str(data), "cache_dir": str(data / "cache")}
 
     def call(self, method, params=None, timeout=60):
+        if method == "initialize":
+            params = {**self.folders, **(params or {})}
         self.serial += 1
         line = json.dumps({"jsonrpc": "2.0", "id": self.serial, "method": method, "params": params or {}}) + "\n"
         self.process.stdin.write(line.encode())

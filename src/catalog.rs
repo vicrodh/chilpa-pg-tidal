@@ -13,11 +13,23 @@ use std::sync::{Arc, Mutex};
 
 pub const DECADES: [&str; 7] = ["1950s", "1960s", "1970s", "1980s", "1990s", "2000s", "2010s"];
 
+fn recent_genre_albums(albums: Vec<Value>, today: chrono::NaiveDate, limit: usize) -> Vec<Value> {
+    let earliest = today - chrono::Days::new(180);
+    let mut dated: Vec<_> = albums.into_iter().filter_map(|album| {
+        let date = chrono::NaiveDate::parse_from_str(str_at(&album, "release_date").get(..10)?, "%Y-%m-%d").ok()?;
+        (earliest <= date && date <= today).then_some((date, album))
+    }).collect();
+    dated.sort_by_key(|(date, _)| std::cmp::Reverse(*date));
+    dated.into_iter().take(limit).map(|(_, album)| album).collect()
+}
+
 pub struct Catalog {
     pub client: Arc<Client>,
     pub cache: Arc<Cache>,
     pub credits: Option<Arc<Credits>>,
     locale: Mutex<String>,
+    /// Whether the host draws a page's linked pages on a line under its tabs.
+    subtabs: std::sync::atomic::AtomicBool,
 }
 
 fn cache_key(parts: &[&str]) -> String {
@@ -30,11 +42,56 @@ fn values(rows: &Value) -> Vec<Value> {
 
 impl Catalog {
     pub fn new(client: Arc<Client>, cache: Arc<Cache>, credits: Option<Arc<Credits>>) -> Catalog {
-        Catalog { client, cache, credits, locale: Mutex::new("en_US".into()) }
+        Catalog { client, cache, credits, locale: Mutex::new("en_US".into()), subtabs: Default::default() }
     }
 
     pub fn set_locale(&self, locale: &str) {
         *self.locale.lock().unwrap() = locale.to_string();
+    }
+
+    pub fn set_subtabs(&self, supported: bool) {
+        self.subtabs.store(supported, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    fn subtabs(&self) -> bool {
+        self.subtabs.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Gives a page's linked pages their own line when the host has one;
+    /// otherwise they follow its tabs as before.
+    fn place_links(&self, document: &mut Value, mut tabs: Vec<Value>, links: Vec<Value>) {
+        if self.subtabs() {
+            if !links.is_empty() {
+                // The line of links belongs to a page of shelves: a flat listing becomes its one shelf.
+                if !document["shelves"].is_array() {
+                    let rows = list_at(document, "items").to_vec();
+                    let kind = rows.first().map(|row| text(at(row, "kind"))).filter(|kind| !kind.is_empty()).unwrap_or_else(|| "album".into());
+                    if let Some(fields) = document.as_object_mut() { fields.remove("items"); }
+                    document["shelves"] = if rows.is_empty() { json!([]) } else { json!([shelf("items", "", &kind, rows, None)]) };
+                }
+                document["subtabs"] = json!(links);
+            }
+        } else {
+            tabs.extend(links);
+        }
+        if tabs.is_empty() { if let Some(fields) = document.as_object_mut() { fields.remove("tabs"); } } else { document["tabs"] = json!(tabs); }
+    }
+
+    /// The discovery menu. A tab that only links carries its pages, so a host with
+    /// a line for them opens it without leaving a page drawn as shelves.
+    fn menu(&self, locale: &str, active: &str, params: &Value, shelved: bool) -> Vec<Value> {
+        let mut menu = discover_tabs(locale, active);
+        if !(shelved && self.subtabs()) { return menu; }
+        for (tab, path) in [("genres", "pages/genre_page"), ("moods", "pages/moods_page")] {
+            if tab == active { continue; }
+            let Ok(value) = self.get(path, params) else { continue };
+            let mut links = list_at(&self.document(&value, path), "tabs").to_vec();
+            offered(tab, &mut links);
+            let rows = linked_pages(tab, &links, None, false).map(|(rows, _)| rows).unwrap_or_default();
+            if rows.is_empty() { continue; }
+            if let Some(row) = menu.iter_mut().find(|row| row["ref"] == format!("discover:{tab}")) { row["pages"] = json!(rows); }
+        }
+        menu
     }
 
     pub fn locale(&self) -> String {
@@ -110,6 +167,9 @@ impl Catalog {
         if let Some(credits) = &self.credits {
             credits.enrich(&mut items, &kind, &user);
         }
+        if kind == "tracks" {
+            items = track_context(items, "favorites:MY_TRACKS");
+        }
         Ok(json!({"items": items, "total": total}))
     }
 
@@ -170,6 +230,7 @@ impl Catalog {
             }
             card(&track, Some("track"), "")
         }).collect();
+        let rows = track_context(rows, &format!("album:{key}"));
         let total = rows.len();
         Ok(json!({"album": card(&raw, Some("album"), ""), "tracks": rows, "total": total}))
     }
@@ -184,6 +245,9 @@ impl Catalog {
     pub fn playlist(&self, params: &Value) -> Result<Value> {
         let reference_text = str_at(params, "ref");
         let (kind, key) = reference(reference_text, None)?;
+        if kind == "recommendations" {
+            return crate::recommendations::playlist(self, &key);
+        }
         if kind == "radio" {
             let (category, id) = key.split_once(':').unwrap_or((&key, ""));
             if !["track", "artist"].contains(&category) || id.is_empty() || !id.chars().all(|c| c.is_ascii_digit()) {
@@ -198,7 +262,7 @@ impl Catalog {
             let info = list_at(&page, "rows").iter().flat_map(|row| list_at(row, "modules"))
                 .map(|module| at(module, "mix")).find(|mix| mix.is_object()).cloned()
                 .unwrap_or_else(|| json!({"id": key, "title": tr(&self.locale(), "Mix")}));
-            let rows = self.rows(&Value::Array(self.all_cached("mix", &key, &format!("mixes/{key}/items"))?), Some("track"));
+            let rows = track_context(self.rows(&Value::Array(self.all_cached("mix", &key, &format!("mixes/{key}/items"))?), Some("track")), &format!("mix:{key}"));
             let total = rows.len();
             return Ok(json!({"playlist": card(&info, Some("mix"), ""), "tracks": rows, "total": total}));
         }
@@ -232,19 +296,62 @@ impl Catalog {
         }
     }
 
+    fn genre_discovery(&self, params: &Value) -> Result<Value> {
+        let genre = str_at(at(params, "filters"), "genre").trim();
+        if genre.is_empty() || genre.len() > 1024 { return Err(Failure::invalid("Invalid genre name.")); }
+        let limit = param_int(params, "limit", 60)?.clamp(1, 60) as usize;
+        let raw = self.get("genres", &json!({"locale":"en_US"}))?;
+        let genres = if raw.is_array() { values(&raw) } else { list_at(&raw, "items").to_vec() };
+        let wanted = fold(genre);
+        let Some(found) = genres.iter().find(|item| fold(str_at(item, "name")) == wanted) else {
+            return Ok(json!({"shelves":[]}));
+        };
+        let id = text(first(found, &["path", "id"]));
+        if id.is_empty() { return Ok(json!({"shelves":[]})); }
+        let page = self.get(&format!("genres/{}/albums", quote_all(&id)), &json!({"limit": 100}))?;
+        let items = if page.is_array() { values(&page) } else { list_at(&page, "items").to_vec() };
+        let user = self.client.user();
+        let mut artists = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for album in items.iter().map(unbox) {
+            for artist in list_at(album, "artists").iter().chain(album.get("artist")) {
+                let key = ident(artist);
+                if !key.is_empty() && artists.len() < limit && seen.insert(key) {
+                    artists.push(card(artist, Some("artist"), &user));
+                }
+            }
+        }
+        let now = chrono::Utc::now().date_naive();
+        let releases = recent_genre_albums(self.rows(&page, Some("album")), now, limit);
+        let locale = self.locale();
+        Ok(json!({"shelves":[
+            shelf("new_releases", &tr(&locale, "New releases"), "album", releases, None),
+            shelf("artists", &tr(&locale, "Artists"), "artist", artists, None),
+        ]}))
+    }
+
     pub fn page(&self, params: &Value) -> Result<Value> {
         let reference_text = match at(params, "ref") { Value::Null => "discover:home".to_string(), other => text(other) };
         if truthy(at(params, "refresh")) {
             self.cache.clear();
         }
         let r = reference_text.as_str();
+        if r == "genre-discovery" { return self.genre_discovery(params); }
         if r.starts_with("discover:") {
             return self.discover(r);
+        }
+        if let Some(offset) = r.strip_prefix("recommendation-lists:") {
+            let offset = offset.parse::<i64>().ok().filter(|offset| *offset >= 0)
+                .ok_or_else(|| Failure::invalid("Invalid recommendations page."))?;
+            return crate::recommendations::choices_page(self, offset);
         }
         if let Some(path) = r.strip_prefix("browse:") {
             let path = unquote(path);
             let value = self.get(&path, &json!({"limit": 50, "deviceType": "BROWSER", "platform": "WEB", "locale": self.locale()}))?;
-            return Ok(self.document(&value, &path));
+            let mut document = self.document(&value, &path);
+            let links = list_at(&document, "tabs").to_vec();
+            self.place_links(&mut document, Vec::new(), links);
+            return Ok(document);
         }
         if r.starts_with("artist:") {
             return self.artist_page(r);
@@ -334,7 +441,7 @@ impl Catalog {
         let image = header["image"].clone();
         let locale = self.locale();
         let mut shelves = vec![shelf("tracks", &tr(&locale, "Popular tracks"), "track",
-            self.rows(&self.optional(&format!("artists/{key}/toptracks"), &json!({"limit": 20}))?, Some("track")), None)];
+            track_context(self.rows(&self.optional(&format!("artists/{key}/toptracks"), &json!({"limit": 20}))?, Some("track")), &format!("artist:{key}")), None)];
         for (group, group_title, filter) in [("albums", "Albums", Value::Null), ("singles", "EPs and singles", json!("EPSANDSINGLES")), ("appears", "Appears on", json!("COMPILATIONS"))] {
             let page = self.optional(&format!("artists/{key}/albums"), &json!({"limit": 30, "filter": filter}))?;
             let rows = self.rows(&page, Some("album"));
@@ -394,6 +501,7 @@ impl Catalog {
             "genres" => "pages/genre_page",
             "moods" => "pages/moods_page",
             "decades" => "",
+            "recommendations" => "",
             _ => return Err(Failure::invalid("Unknown discovery tab.")),
         };
         let locale = self.locale();
@@ -405,18 +513,24 @@ impl Catalog {
             }
             let path = format!("pages/m_{decade}");
             let mut document = self.document(&self.get(&path, &params)?, &path);
-            let mut tabs: Vec<Value> = DECADES.iter().map(|label| json!({"title": label, "ref": format!("discover:decades:{label}"), "active": *label == decade})).collect();
-            tabs.extend(list_at(&document, "tabs").iter().cloned());
-            for (field, value) in [("title", json!(tr(&locale, "Decades"))), ("tab", json!(tab)), ("personal", json!(false)), ("genre_filter", json!("")), ("genres", json!([])), ("tabs", json!(tabs))] {
+            let mut decades: Vec<Value> = DECADES.iter().map(|label| json!({"title": label, "ref": format!("discover:decades:{label}"), "active": *label == decade})).collect();
+            decades.extend(list_at(&document, "tabs").iter().cloned());
+            for (field, value) in [("title", json!(tr(&locale, "Music"))), ("tab", json!(tab)), ("personal", json!(false)), ("genre_filter", json!("")), ("genres", json!([]))] {
                 document[field] = value;
             }
+            let menu = self.menu(&locale, tab, &params, true);
+            self.place_links(&mut document, menu, decades);
             return Ok(document);
         }
-        let genres = self.optional("genres", &json!({}))?;
+        let genres = if tab == "recommendations" { json!([]) } else { self.optional("genres", &json!({}))? };
         let genre_rows: Vec<Value> = if genres.is_array() { values(&genres) } else { list_at(&genres, "items").to_vec() };
         let genre_id = |genre: &Value| match genre.get("path") { Some(path) => text(path), None => text(at(genre, "id")) };
-        let chosen = parts.get(2).filter(|part| !part.is_empty()).map(|part| unquote(part)).unwrap_or_default();
-        let mut document = if !chosen.is_empty() {
+        // The third part is a genre filter, or with a leading `@` one of the pages this tab links to.
+        let linked = parts.get(2).and_then(|part| part.strip_prefix('@')).map(unquote);
+        let chosen = parts.get(2).filter(|part| !part.is_empty() && linked.is_none()).map(|part| unquote(part)).unwrap_or_default();
+        let mut document = if tab == "recommendations" {
+            crate::recommendations::choices(self)?
+        } else if !chosen.is_empty() {
             let known: Vec<String> = genre_rows.iter().map(genre_id).collect();
             let selected: Vec<&str> = chosen.split(',').collect();
             if selected.iter().any(|genre| !known.iter().any(|k| k == genre)) {
@@ -460,26 +574,30 @@ impl Catalog {
             }
             self.document(&value, path)
         };
-        if tab == "moods" {
-            let excluded = ["record labels", "record label", "tidal magazine", "artist experiences"];
-            let mut tabs: Vec<Value> = list_at(&document, "tabs").iter()
-                .filter(|link| !excluded.contains(&fold(text(at(link, "title")).trim()).as_str())).cloned().collect();
-            tabs.sort_by_key(|link| fold(&text(at(link, "title"))));
-            document["tabs"] = json!(tabs);
+        let mut links: Vec<Value> = list_at(&document, "tabs").to_vec();
+        // A genre filter replaces the tab's content, not the pages the tab links to.
+        if links.is_empty() && !chosen.is_empty() {
+            if let Ok(value) = self.get(path, &params) { links = list_at(&self.document(&value, path), "tabs").to_vec(); }
+        }
+        offered(tab, &mut links);
+        // A tab that holds only links has nothing of its own to show. A host with
+        // a line for them shows that line; an older one opens the first page.
+        let empty = list_at(&document, "shelves").is_empty();
+        let (pages, shown) = linked_pages(tab, &links, linked.as_deref(), empty && !self.subtabs())?;
+        if let Some(path) = &shown {
+            document = self.document(&self.get(path, &params)?, path);
         }
         let listed = ["home", "editors", "explore", "new", "top", "hires"].contains(&tab);
         let genres_out: Vec<Value> = if listed {
             genre_rows.iter().map(|genre| json!({"id": genre_id(genre), "name": match genre.get("name") { Some(name) => name.clone(), None => json!("") }})).collect()
         } else { Vec::new() };
         let active = if tab == "foryou" { "home" } else { tab };
-        let mut tabs: Vec<Value> = [("home", "For You"), ("new", "New"), ("top", "Top"), ("editors", "Staff Picks"),
-            ("explore", "Explore"), ("hires", "Hi-Res"), ("mixes", "My Mixes"), ("genres", "Genres"), ("decades", "Decades"), ("moods", "Moods")]
-            .iter().map(|(key, title)| json!({"title": tr(&locale, title), "ref": format!("discover:{key}"), "active": *key == active})).collect();
-        tabs.extend(list_at(&document, "tabs").iter().cloned());
-        for (field, value) in [("title", json!(tr(&locale, "Music"))), ("tab", json!(tab)), ("personal", json!(["home", "foryou", "mixes"].contains(&tab))),
-                               ("genre_filter", json!(chosen)), ("genres", json!(genres_out)), ("tabs", json!(tabs))] {
+        for (field, value) in [("title", json!(tr(&locale, "Music"))), ("tab", json!(tab)), ("personal", json!(["home", "foryou", "mixes", "recommendations"].contains(&tab))),
+                               ("genre_filter", json!(chosen)), ("genres", json!(genres_out))] {
             document[field] = value;
         }
+        let menu = self.menu(&locale, active, &params, document["shelves"].is_array() || !pages.is_empty());
+        self.place_links(&mut document, menu, pages);
         Ok(document)
     }
 
@@ -594,6 +712,49 @@ impl Catalog {
     }
 }
 
+/// What a tab's page links to that is worth offering, in the order it is offered.
+fn offered(tab: &str, links: &mut Vec<Value>) {
+    if tab == "moods" {
+        let excluded = ["record labels", "record label", "tidal magazine", "artist experiences"];
+        links.retain(|link| !excluded.contains(&fold(text(at(link, "title")).trim()).as_str()));
+        links.sort_by_key(|link| fold(&text(at(link, "title"))));
+    }
+}
+
+fn discover_tabs(locale: &str, active: &str) -> Vec<Value> {
+    [("home", "For You"), ("new", "New"), ("top", "Top"), ("editors", "Staff Picks"),
+        ("explore", "Explore"), ("hires", "Hi-Res"), ("mixes", "My Mixes"), ("recommendations", "Playlist recommendations"), ("genres", "Genres"), ("decades", "Decades"), ("moods", "Moods")]
+        .iter().map(|(key, title)| json!({"title": tr(locale, title), "ref": format!("discover:{key}"), "active": *key == active})).collect()
+}
+
+/// The pages a tab links to, as rows that open inside that tab so its menu
+/// stays, and the one to show now: the chosen page, or the first when the tab
+/// would otherwise open empty.
+fn linked_pages(tab: &str, links: &[Value], chosen: Option<&str>, open_first: bool) -> Result<(Vec<Value>, Option<String>)> {
+    let pages: Vec<(Value, String)> = links.iter().filter_map(|link| {
+        let reference = text(at(link, "ref"));
+        let path = unquote(reference.strip_prefix("browse:")?);
+        (!path.is_empty()).then(|| (at(link, "title").clone(), path))
+    }).collect();
+    let shown = match chosen {
+        Some(chosen) => Some(pages.iter().find(|(_, path)| path == chosen).map(|(_, path)| path.clone())
+            .ok_or_else(|| Failure::invalid("Unknown page."))?),
+        None if open_first => pages.first().map(|(_, path)| path.clone()),
+        None => None,
+    };
+    let rows = pages.iter().map(|(title, path)| json!({"title": title, "ref": format!("discover:{tab}:@{}", quote_all(path)),
+        "active": Some(path) == shown.as_ref()})).collect();
+    Ok((rows, shown))
+}
+
+fn track_context(mut tracks: Vec<Value>, context: &str) -> Vec<Value> {
+    for track in &mut tracks {
+        let reference = text(at(track, "ref"));
+        track["ref"] = json!(format!("{reference}@{context}"));
+    }
+    tracks
+}
+
 fn title_case(text: &str) -> String {
     let mut out = String::new();
     let mut start = true;
@@ -620,6 +781,16 @@ pub fn snapshot_id(rows: &[Value]) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn genre_releases_exclude_unknown_older_and_future_dates() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 6, 1).unwrap();
+        let albums = [("old", "2025-01-01"), ("recent", "2026-04-12"), ("today", "2026-06-01"),
+                      ("future", "2026-06-02"), ("unknown", "2026")].into_iter()
+            .map(|(id, date)| serde_json::json!({"ref":id, "release_date":date})).collect();
+        let releases = super::recent_genre_albums(albums, today, 2);
+        assert_eq!(releases.iter().map(|item| item["ref"].as_str().unwrap()).collect::<Vec<_>>(), ["today", "recent"]);
+    }
+
     use super::*;
 
     #[test]
@@ -627,6 +798,51 @@ mod tests {
         // sha256('[["track", "7"], ["track", "7"]]')[:24], as the earlier plugin computed it.
         let rows = vec![json!({"type": "track", "item": {"id": 7}}), json!({"type": "track", "item": {"id": 7}})];
         assert_eq!(snapshot_id(&rows), sha256_hex(r#"[["track", "7"], ["track", "7"]]"#)[..24].to_string());
+    }
+
+    #[test]
+    fn linked_pages_open_inside_their_tab_and_only_a_known_one_is_shown() {
+        let links = vec![json!({"title": "Blues", "ref": "browse:pages%2Fgenre_blues"}), json!({"title": "Jazz", "ref": "browse:pages%2Fgenre_jazz"}),
+            json!({"title": "Elsewhere", "ref": "album:4"}), json!({"title": "Empty", "ref": "browse:"})];
+        let (rows, shown) = linked_pages("genres", &links, None, false).unwrap();
+        assert_eq!(shown, None);
+        assert_eq!(rows, vec![json!({"title": "Blues", "ref": "discover:genres:@pages%2Fgenre_blues", "active": false}),
+            json!({"title": "Jazz", "ref": "discover:genres:@pages%2Fgenre_jazz", "active": false})]);
+        let (rows, shown) = linked_pages("genres", &links, None, true).unwrap();
+        assert_eq!(shown.as_deref(), Some("pages/genre_blues"));
+        assert_eq!(rows[0]["active"], true);
+        let (rows, shown) = linked_pages("genres", &links, Some("pages/genre_jazz"), false).unwrap();
+        assert_eq!(shown.as_deref(), Some("pages/genre_jazz"));
+        assert_eq!((rows[0]["active"].clone(), rows[1]["active"].clone()), (json!(false), json!(true)));
+        assert!(linked_pages("genres", &links, Some("pages/other"), false).is_err());
+        assert_eq!(linked_pages("genres", &[], None, true).unwrap(), (Vec::new(), None));
+    }
+
+    #[test]
+    fn the_menu_stays_and_linked_pages_take_their_own_line_when_the_host_has_one() {
+        let folder = tempfile::tempdir().unwrap();
+        let client = Arc::new(Client::new(folder.path()));
+        let catalog = Catalog::new(client, Arc::new(Cache::default()), None);
+        let menu = discover_tabs("en", "genres");
+        assert_eq!(menu.iter().filter(|tab| tab["active"] == true).map(|tab| tab["ref"].clone()).collect::<Vec<_>>(), vec![json!("discover:genres")]);
+        let links = vec![json!({"title": "Blues", "ref": "discover:genres:@pages%2Fgenre_blues", "active": false})];
+        let mut older = json!({"tabs": [{"title": "Stale"}]});
+        catalog.place_links(&mut older, menu.clone(), links.clone());
+        assert_eq!(older["tabs"].as_array().unwrap().len(), menu.len() + 1);
+        assert!(older.get("subtabs").is_none());
+        catalog.set_subtabs(true);
+        let mut newer = json!({"tabs": [{"title": "Stale"}]});
+        catalog.place_links(&mut newer, menu.clone(), links.clone());
+        assert_eq!(newer["tabs"], json!(menu));
+        assert_eq!(newer["subtabs"], json!(links));
+        assert_eq!(newer["shelves"], json!([]), "a page of links alone is still a page of shelves");
+        let mut flat = json!({"items": [{"kind": "playlist", "ref": "playlist:1", "title": "One"}]});
+        catalog.place_links(&mut flat, menu.clone(), links.clone());
+        assert!(flat.get("items").is_none());
+        assert_eq!((flat["shelves"][0]["kind"].clone(), flat["shelves"][0]["items"].as_array().unwrap().len()), (json!("playlist"), 1));
+        let mut plain = json!({"tabs": [{"title": "Stale"}]});
+        catalog.place_links(&mut plain, Vec::new(), Vec::new());
+        assert!(plain.get("tabs").is_none() && plain.get("subtabs").is_none());
     }
 
     #[test]

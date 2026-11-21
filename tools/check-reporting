@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""Exercise metadata and durable play reporting against a local fake service.
+
+Pass a plugin binary built with --features mock-endpoints. No live account,
+browser, audio output or installed Chilpa profile is used.
+"""
+import argparse
+import base64
+import json
+import pathlib
+import sys
+import tempfile
+import time
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "differential"))
+from compare import Plugin  # noqa: E402
+import mock  # noqa: E402
+
+
+def access_token(session):
+    claims = json.dumps({"uid": 5, "cid": 123, "sid": session}).encode()
+    return "fixture." + base64.urlsafe_b64encode(claims).decode().rstrip("=") + ".signature"
+
+
+def wait_until(check, timeout=8):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if check():
+            return
+        time.sleep(0.05)
+    raise AssertionError("The expected reporting state did not arrive")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("binary", type=pathlib.Path)
+    args = parser.parse_args()
+    server, world, base = mock.serve()
+    original = world.answer
+    mode = {"ack": False, "favorites": "ok", "recommendations": "ok"}
+    membership = {"TRACK": ["100", "101"], "ALBUM": ["10"], "ARTIST": ["20"], "PLAYLIST": [mock.PLAYLIST_MINE]}
+    mock.TRACKS[100]["ai"] = True
+    mock.TRACKS[101]["ai"] = True
+    mock.TRACKS[102]["ai"] = False
+    mock.TRACKS[101]["artists"] = [
+        {"id": 21, "name": "Guest", "type": "FEATURED"},
+        {"id": 20, "name": "Main Artist", "type": "MAIN"}]
+    mock.ALBUMS[10]["ai"] = True
+
+    def answer(method, host, path, query, form):
+        if host == "api.tidal.com":
+            if path == "/v1/users/5/favorites/ids":
+                return 200, {}, membership if mode["favorites"] == "ok" else {"TRACK": "invalid"}
+            if method == "DELETE" and path == "/v1/users/5/favorites/tracks/101":
+                membership["TRACK"] = [key for key in membership["TRACK"] if key != "101"]
+            if path.endswith("/recommendations/items"):
+                if mode["recommendations"] == "invalid":
+                    return 200, {}, {"unexpected": []}
+                if mode["recommendations"] == "denied":
+                    return 403, {}, {"status": 403}
+                rows = [{"type": "TRACK", "item": mock.TRACKS[100]}, {"type": "VIDEO", "item": {"id": 999}},
+                        {"type": "TRACK", "item": mock.TRACKS[101]}, {"type": "TRACK", "item": mock.TRACKS[100]},
+                        {"type": "TRACK", "item": mock.TRACKS[102]}]
+                if mode["recommendations"] == "empty":
+                    rows = []
+                offset = 0 if mode["recommendations"] == "repeat" else int(query.get("offset", 0))
+                return 200, {}, {"items": rows[offset:offset + 2], "totalNumberOfItems": len(rows)}
+        if host == "ec.tidal.com" and not mode["ack"]:
+            # HTTP 200 is insufficient: this acknowledges a different entry.
+            return 200, {"Content-Type": "text/xml"}, (
+                b'<SendMessageBatchResponse><SendMessageBatchResult>'
+                b'<SendMessageBatchResultEntry><Id>another-entry</Id></SendMessageBatchResultEntry>'
+                b'</SendMessageBatchResult></SendMessageBatchResponse>')
+        return original(method, host, path, query, form)
+
+    world.answer = answer
+    process = None
+    try:
+        with tempfile.TemporaryDirectory(prefix="chilpa-tidal-reporting-") as temporary:
+            data = pathlib.Path(temporary)
+
+            def account(session):
+                (data / "account.json").write_text(json.dumps({"user_id": "5", "access_token": access_token(session),
+                    "refresh_token": "fixture-refresh", "expires": time.time() + 3600, "country": "US"}))
+
+            def start():
+                plugin = Plugin([str(args.binary.resolve())], data, base)
+                assert plugin.call("initialize", {"locale": "en", "playback_events": 1})["result"]["protocol"] == 1
+                return plugin
+
+            account("original-session")
+            process = start()
+            track = process.call("track.get", {"ref": "track:101"})["result"]["track"]
+            assert track["ai_generated"] is True
+            assert track["favorite"] is True
+            assert (track["artist"], track["artist_ref"]) == ("Main Artist", "artist:20")
+            clean = process.call("track.get", {"ref": "track:102"})["result"]["track"]
+            assert clean["ai_generated"] is False
+            album = process.call("album.get", {"ref": "album:10"})["result"]
+            assert album["album"]["ai_generated"] is True
+            assert all(row["ref"].endswith("@album:10") for row in album["tracks"])
+            unknown = next(row for row in album["tracks"] if row["ref"].startswith("track:103@"))
+            assert "ai_generated" not in unknown
+            saved = process.call("library.list", {"kind": "tracks", "limit": 5})["result"]["items"]
+            assert saved and all(row["ref"].endswith("@favorites:MY_TRACKS") for row in saved)
+            mix = process.call("playlist.get", {"ref": "mix:mix1"})["result"]["tracks"]
+            assert mix and all(row["ref"].endswith("@mix:mix1") for row in mix)
+            search = process.call("search", {"text": "Song", "limit": 5})["result"]
+            assert any(row.get("ai_generated") is True for row in search["tracks"])
+            assert search["albums"][0]["favorite"] is True
+            assert search["artists"][0]["favorite"] is True
+            ids_requests = lambda: [row for row in world.snapshot() if row["path"] == "/v1/users/5/favorites/ids"]
+            assert len(ids_requests()) == 1, "catalog reads must share one favorite membership request"
+            assert "result" in process.call("favorites.set", {"ref": "track:101", "on": False})
+            assert process.call("track.get", {"ref": "track:101"})["result"]["track"]["favorite"] is False
+            assert len(ids_requests()) == 2, "a favorite write must invalidate the shared snapshot"
+            mode["favorites"] = "invalid"
+            unknown = process.call("track.get", {"ref": "track:101", "refresh": True})["result"]["track"]
+            assert "favorite" not in unknown, "malformed membership must remain unknown"
+            process.call("track.get", {"ref": "track:102"})
+            assert len(ids_requests()) == 3, "failed membership must honor its retry cooldown"
+            mode["favorites"] = "ok"
+            assert process.call("track.get", {"ref": "track:100", "refresh": True})["result"]["track"]["favorite"] is True
+            choices = process.call("page.get", {"ref": "discover:recommendations"})["result"]
+            assert choices["personal"] is True
+            cards = choices["shelves"][0]["items"]
+            full_choices = process.call("page.get", {"ref": choices["shelves"][0]["more"]})["result"]
+            assert [row["ref"] for row in full_choices["items"]] == [row["ref"] for row in cards]
+            assert full_choices["next"] is None
+            recommended_ref = "recommendations:" + mock.PLAYLIST_MINE
+            assert any(row["ref"] == recommended_ref for row in cards)
+            recommended = process.call("playlist.get", {"ref": recommended_ref})["result"]
+            assert not recommended["playlist"]["editable"] and not recommended["playlist"]["copyable"]
+            assert recommended["total"] == 3 and not recommended["truncated"]
+            assert [row["ref"].split("@")[0] for row in recommended["tracks"]] == ["track:100", "track:101", "track:102"]
+            assert all("member" not in row and row["ref"].endswith("@playlist:" + mock.PLAYLIST_MINE) for row in recommended["tracks"])
+            assert not any(row["method"] != "GET" and "/playlists/" in row["path"] for row in world.snapshot())
+            for recommendation_mode in ["empty", "invalid", "denied", "repeat"]:
+                mode["recommendations"] = recommendation_mode
+                process.call("page.get", {"ref": "discover:recommendations", "refresh": True})
+                reply = process.call("playlist.get", {"ref": recommended_ref})
+                if recommendation_mode == "empty":
+                    assert reply["result"]["tracks"] == []
+                else:
+                    assert "error" in reply, "failed recommendations must not become an empty playlist"
+            mode["recommendations"] = "ok"
+            ticket = process.call("track.resolve", {"ref": "track:101@album:10"})["result"]["resolution_id"]
+            assert process.call("reporting.status")["result"]["pending"] == 0
+            start_params = {"kind": "started", "playback_id": "first", "resolution_id": ticket, "started_at": 100, "position_ms": 0}
+            assert process.call("playback.event", start_params)["result"]["accepted"]
+            final = {"kind": "ended", "playback_id": "first", "sequence": 1, "played_ms": 31000,
+                     "position_ms": 31000, "observed_at_ms": 131000, "reason": "finished"}
+            assert process.call("playback.event", final)["result"]["accepted"]
+            wait_until(lambda: process.call("reporting.status")["result"]["last_error"])
+            assert process.call("reporting.status")["result"]["pending"] == 1
+            assert not process.close()
+            process = None
+            path = data / "history.json"
+            journal = json.loads(path.read_text())
+            entry = journal["outbox"][0]
+            body = entry["body"]
+            assert body["user"] == {"id": 5, "clientId": 123, "sessionId": "original-session"}
+            assert body["client"]["token"] == "123"
+            assert body["client"]["platform"] == "android" and body["client"]["deviceType"] == "mobile"
+            assert body["payload"]["sourceType"] == "ALBUM" and body["payload"]["sourceId"] == "10"
+            assert body["payload"]["actualProductId"] == "101"
+            assert body["payload"]["actions"] == []
+            assert "signature" not in path.read_text()
+            entry["retry_at"] = 0
+            path.write_text(json.dumps(journal))
+            account("refreshed-session")
+            mode["ack"] = True
+            process = start()
+            wait_until(lambda: process.call("reporting.status")["result"]["delivered"] == 1)
+            assert process.call("reporting.status")["result"]["pending"] == 0
+            assert process.call("playback.event", start_params)["result"]["accepted"]
+            assert process.call("playback.event", final)["result"]["accepted"]
+            assert process.call("reporting.status")["result"]["pending"] == 0
+            events = [dict(row["form"]) for row in world.snapshot() if row["host"] == "ec.tidal.com"]
+            key = "SendMessageBatchRequestEntry.1"
+            assert len(events) == 2
+            for event in events:
+                headers = json.loads(event[key + ".MessageAttribute.2.Value.StringValue"])
+                assert all(isinstance(value, str) for value in headers.values())
+                assert headers["os-name"] == "Android"
+                assert headers["app-version"] == body["client"]["version"]
+            assert events[0][key + ".Id"] == events[1][key + ".Id"] == entry["id"]
+            assert events[0][key + ".MessageBody"] == events[1][key + ".MessageBody"]
+            assert json.loads(events[1][key + ".MessageBody"]) == body
+            assert not process.close()
+            process = None
+            print("Metadata and reporting passed: AI true/false/unknown, primary artist, container origins, "
+                  "shared favorite IDs, mutation invalidation, malformed membership cooldown, playlist recommendations, "
+                  "pagination, video filtering, duplicate suppression, empty/error recommendations, "
+                  "preload, per-entry ACK, durable retry, token refresh, restart and duplicate delivery.")
+    finally:
+        if process is not None:
+            process.close()
+        server.shutdown()
+        server.server_close()
+
+
+if __name__ == "__main__":
+    main()

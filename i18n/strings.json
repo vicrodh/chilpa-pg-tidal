@@ -1,4 +1,31 @@
 {
+ "Playlist recommendations": {
+  "es": "Recomendaciones para playlists",
+  "de": "Playlist-Empfehlungen",
+  "fr": "Recommandations pour les playlists",
+  "pt": "Recomendações para playlists",
+  "ru": "Рекомендации для плейлистов",
+  "ja": "プレイリストへのおすすめ",
+  "nl": "Aanbevelingen voor afspeellijsten"
+ },
+ "Recommendations for {name}": {
+  "es": "Recomendaciones para {name}",
+  "de": "Empfehlungen für {name}",
+  "fr": "Recommandations pour {name}",
+  "pt": "Recomendações para {name}",
+  "ru": "Рекомендации для {name}",
+  "ja": "{name} へのおすすめ",
+  "nl": "Aanbevelingen voor {name}"
+ },
+ "Showing the first {count} recommendations.": {
+  "es": "Se muestran las primeras {count} recomendaciones.",
+  "de": "Die ersten {count} Empfehlungen werden angezeigt.",
+  "fr": "Les {count} premières recommandations sont affichées.",
+  "pt": "São mostradas as primeiras {count} recomendações.",
+  "ru": "Показаны первые {count} рекомендаций.",
+  "ja": "最初の {count} 件のおすすめを表示しています。",
+  "nl": "De eerste {count} aanbevelingen worden getoond."
+ },
  "1. Select Open Tidal sign-in, sign in and approve access. If Chilpa opens Tidal in a window of its own, the sign-in finishes there and nothing else is needed.": {
   "es": "1. Selecciona Abrir Tidal, inicia sesión y autoriza el acceso. Si Chilpa abre Tidal en una ventana propia, el acceso termina ahí y no hace falta nada más.",
   "de": "1. Wähle „Tidal-Anmeldung öffnen“, melde dich an und genehmige den Zugriff. Wenn Chilpa Tidal in einem eigenen Fenster öffnet, wird die Anmeldung dort abgeschlossen und es ist nichts weiter nötig.",
@@ -646,5 +673,59 @@
   "ru": "Радио: {name}",
   "ja": "{name}のラジオ",
   "nl": "Radio: {name}"
+ },
+ "Only if Tidal opened in your browser: the address of the page it shows at the end": {
+  "es": "Solo si Tidal se abrió en tu navegador: la dirección de la página que muestra al final",
+  "de": "Nur wenn Tidal sich im Browser geöffnet hat: die Adresse der Seite, die am Ende angezeigt wird",
+  "fr": "Uniquement si Tidal s'est ouvert dans votre navigateur : l'adresse de la page affichée à la fin",
+  "pt": "Somente se o Tidal abriu no seu navegador: o endereço da página que ele mostra no final",
+  "ru": "Только если Tidal открылся в браузере: адрес страницы, которую он показывает в конце",
+  "ja": "Tidalがブラウザで開いた場合のみ：最後に表示されるページのアドレス",
+  "nl": "Alleen als Tidal in je browser is geopend: het adres van de pagina die aan het einde verschijnt"
+ },
+ "Sign in to Tidal": {
+  "es": "Inicia sesión en Tidal",
+  "de": "Bei Tidal anmelden",
+  "fr": "Se connecter à Tidal",
+  "pt": "Entrar no Tidal",
+  "ru": "Вход в Tidal",
+  "ja": "Tidalにログイン",
+  "nl": "Inloggen bij Tidal"
+ },
+ "Sign in with a code": {
+  "es": "Inicia sesión con un código",
+  "de": "Mit einem Code anmelden",
+  "fr": "Se connecter avec un code",
+  "pt": "Entrar com um código",
+  "ru": "Вход по коду",
+  "ja": "コードでログイン",
+  "nl": "Inloggen met een code"
+ },
+ "Tidal is connected": {
+  "es": "Tidal está conectado",
+  "de": "Tidal ist verbunden",
+  "fr": "Tidal est connecté",
+  "pt": "O Tidal está conectado",
+  "ru": "Tidal подключён",
+  "ja": "Tidalに接続しました",
+  "nl": "Tidal is verbonden"
+ },
+ "Sign in": {
+  "es": "Iniciar sesión",
+  "de": "Anmelden",
+  "fr": "Connexion",
+  "pt": "Login",
+  "ru": "Вход",
+  "ja": "ログイン",
+  "nl": "Inloggen"
+ },
+ "Ready": {
+  "es": "Listo",
+  "de": "Bereit",
+  "fr": "Prêt",
+  "pt": "Pronto",
+  "ru": "Готово",
+  "ja": "完了",
+  "nl": "Gereed"
  }
 }

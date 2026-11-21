@@ -1,0 +1,71 @@
+name: Package checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_BUILD_JOBS: '2'
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test and package on Debian 12
+        run: |
+          docker build -f tools/ci-linux.Dockerfile -t plugin-ci .
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e CARGO_HOME=/tmp/cargo \
+            -v "$PWD:/source" plugin-ci sh tools/ci-linux
+      - name: Verify and checksum the packages
+        run: python3 tools/check-package
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tidal-linux-x86_64-${{ github.sha }}
+          path: |
+            dist/*.zip
+            dist/*.zip.sha256
+            dist/package-check.json
+          if-no-files-found: error
+          retention-days: 30
+
+  macos:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # pinned installer
+        with:
+          toolchain: 1.96.0
+      - name: Test and package on Apple Silicon
+        run: |
+          cargo fetch --locked
+          cargo test --locked --offline
+          python3 tools/build-native
+          python3 tools/smoke-native dist/*-aarch64-apple-darwin --direct
+      - name: Verify and checksum the packages
+        run: python3 tools/check-package
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tidal-macos-aarch64-${{ github.sha }}
+          path: |
+            dist/*.zip
+            dist/*.zip.sha256
+            dist/package-check.json
+          if-no-files-found: error
+          retention-days: 30

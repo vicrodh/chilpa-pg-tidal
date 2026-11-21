@@ -3,7 +3,7 @@
 //! contract.
 
 use crate::client::{now, Body, Client, DEVICE_CLIENT_ID, PKCE_CLIENT_ID};
-use crate::json::{at, dumps_spaced, list_at, text, truthy};
+use crate::json::{at, dumps_spaced, list_at, text};
 use crate::state::{save, Failure, Result};
 use base64::Engine;
 use serde_json::{json, Value};
@@ -13,43 +13,14 @@ use std::time::Duration;
 
 pub const ENDPOINT: &str = "https://ec.tidal.com/api/event-batch";
 const RECOVERY: &str = "The listening journal needs recovery.";
+const MIN_REPORT_MS: i64 = 30000;
+mod event;
+pub use event::event_body;
+pub(crate) use event::source;
 
 pub fn token_urlsafe(bytes: usize) -> String {
     let random: Vec<u8> = (0..bytes).map(|_| rand::random::<u8>()).collect();
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(random)
-}
-
-pub fn event_body(entry: &Value) -> Value {
-    let (play, event_id) = (at(entry, "play"), at(entry, "id"));
-    let spans = list_at(play, "spans");
-    let reference = text(at(at(play, "track"), "ref"));
-    let base = reference.split('@').next().unwrap_or("");
-    let track = base.split_once(':').map(|(_, key)| key).unwrap_or("").to_string();
-    let extra = at(play, "extra");
-    let (mut source_type, mut source_id) = (at(extra, "source_type").clone(), at(extra, "source_id").clone());
-    // I attribute standalone plays to the track; an empty origin can be
-    // acknowledged by ingestion without appearing in the account history.
-    let known = ["ALBUM", "PLAYLIST", "ARTIST", "MIX", "MY_ITEMS"];
-    if !source_type.as_str().is_some_and(|kind| known.contains(&kind)) || !truthy(&source_id) {
-        source_type = json!("ITEM");
-        source_id = json!(track);
-    }
-    let seconds = |span: &Value, field: &str| at(span, field).as_f64().unwrap_or(0.0) / 1000.0;
-    let mut actions = Vec::new();
-    for span in spans {
-        actions.push(json!({"actionType": "PLAYBACK_START", "assetPosition": seconds(span, "start"), "timestamp": at(span, "at")}));
-        actions.push(json!({"actionType": "PLAYBACK_STOP", "assetPosition": seconds(span, "end"), "timestamp": at(span, "until")}));
-    }
-    let (first, last) = (spans.first().cloned().unwrap_or(Value::Null), spans.last().cloned().unwrap_or(Value::Null));
-    let audio_mode = match extra.get("audio_mode") { Some(mode) => mode.clone(), None => json!("STEREO") };
-    json!({"group": "play_log", "name": "playback_session", "version": 2, "uuid": event_id,
-        "ts": at(&last, "until"), "payload": {"actions": actions, "actualAssetPresentation": "FULL",
-        "actualAudioMode": audio_mode, "actualProductId": track,
-        "actualQuality": at(extra, "quality"), "endAssetPosition": seconds(&last, "end"),
-        "endTimestamp": at(&last, "until"), "isPostPaywall": true, "playbackSessionId": event_id,
-        "productType": "TRACK", "requestedProductId": track, "sourceId": source_id,
-        "sourceType": source_type, "startAssetPosition": seconds(&first, "start"),
-        "startTimestamp": at(&first, "at")}})
 }
 
 enum Delivered {
@@ -161,7 +132,14 @@ impl Reports {
         let key = token_urlsafe(24);
         let mut state = journal.state.clone();
         let tickets = state["tickets"].as_object_mut().unwrap();
-        tickets.insert(key.clone(), json!({"user": self.client.user(), "track": track, "extra": if extra.is_object() { extra } else { json!({}) }}));
+        let session = self.client.session();
+        let user = text(at(&session.account, "user_id"));
+        let mut extra = if extra.is_object() { extra } else { json!({}) };
+        if let Ok(identity) = event::identity(&text(at(&session.account, "access_token")), &user) {
+            extra["identity"] = identity;
+        }
+        drop(session);
+        tickets.insert(key.clone(), json!({"user": user, "track": track, "extra": extra}));
         while tickets.len() > 512 {
             let Some(oldest) = tickets.keys().next().cloned() else { break };
             tickets.shift_remove(&oldest);
@@ -239,7 +217,9 @@ impl Reports {
             play["ended"] = json!(kind == "ended");
             // Older hosts have no media cursor. I keep their local history,
             // but never invent positions or backfill historical listens.
-            if kind == "ended" && truthy(&play["spans"]) {
+            let measured: i64 = list_at(&play, "spans").iter().map(|span|
+                (span["end"].as_i64().unwrap_or(0) - span["start"].as_i64().unwrap_or(0)).max(0)).sum();
+            if kind == "ended" && measured >= MIN_REPORT_MS {
                 if list_at(&state, "outbox").len() >= 1024 {
                     return Err(Failure::new("The listening delivery queue is full."));
                 }
@@ -256,7 +236,7 @@ impl Reports {
 
     pub fn flush(&self) {
         let Ok(_delivery) = self.delivery.try_lock() else { return };
-        let entry = {
+        let mut entry = {
             let journal = self.journal();
             if journal.blocked {
                 return;
@@ -267,7 +247,9 @@ impl Reports {
             }
             entry
         };
-        let delivered = if text(at(&entry, "user")) == self.client.user() { self.send(&entry) } else { Ok(Delivered::Discard) };
+        let delivered = if text(at(&entry, "user")) == self.client.user() {
+            self.prepare(&mut entry).and_then(|_| self.send(&entry))
+        } else { Ok(Delivered::Discard) };
         let mut journal = self.journal();
         match delivered {
             Err(error) => {
@@ -305,22 +287,47 @@ impl Reports {
         }
     }
 
+    fn credentials(&self, entry: &Value) -> Result<(String, &'static str)> {
+        let (token, _) = self.client.token()?;
+        let session = self.client.session();
+        if text(at(&session.account, "user_id")) != text(at(entry, "user")) || text(at(&session.account, "access_token")) != token {
+            return Err(Failure::new("The listening event belongs to another account."));
+        }
+        let client_id = if session.account["client"] == "device" { DEVICE_CLIENT_ID } else { PKCE_CLIENT_ID };
+        Ok((token, client_id))
+    }
+
+    fn prepare(&self, entry: &mut Value) -> Result<()> {
+        if entry["body"].is_object() {
+            return Ok(());
+        }
+        let identity = match entry["play"]["extra"].get("identity") {
+            Some(identity) => identity.clone(),
+            None => event::identity(&self.credentials(entry)?.0, &text(at(entry, "user")))?,
+        };
+        // Freeze the whole body before HTTP. Retries and restarts keep the
+        // same event, session attribution, client version and measured facts.
+        entry["body"] = event_body(entry, &identity);
+        let mut journal = self.journal();
+        let mut state = journal.state.clone();
+        state["outbox"][0] = entry.clone();
+        self.write(&state)?;
+        journal.state = state;
+        Ok(())
+    }
+
     fn send(&self, entry: &Value) -> Result<Delivered> {
         // I snapshot the account token before sending; network latency must not
         // hold the account lock used by catalog and playback requests.
         if self.client.user() != text(at(entry, "user")) {
             return Err(Failure::new("The listening event belongs to another account."));
         }
-        let (token, _) = self.client.token()?;
-        let system = match std::env::consts::OS { "linux" => "Linux", "macos" => "Darwin", "windows" => "Windows", other => other };
-        let client_id = if self.client.device_session() { DEVICE_CLIENT_ID } else { PKCE_CLIENT_ID };
-        let headers = json!({"app-name": "Chilpa", "app-version": "0.1.11", "browser-name": "", "browser-version": "",
-            "client-id": client_id, "consent-category": "NECESSARY", "os-name": system,
-            "requested-sent-timestamp": (now() * 1000.0) as i64, "authorization": token});
+        let (token, client_id) = self.credentials(entry)?;
+        let headers = event::headers(client_id, &token, (now() * 1000.0) as i64);
         let id = text(at(entry, "id"));
         let key = "SendMessageBatchRequestEntry.1";
         let form = vec![(format!("{key}.Id"), id.clone()),
-            (format!("{key}.MessageBody"), serde_json::to_string(&event_body(entry)).unwrap_or_default()),
+            (format!("{key}.MessageBody"), serde_json::to_string(&entry["body"]).unwrap_or_default()),
             (format!("{key}.MessageAttribute.1.Name"), "Name".into()),
             (format!("{key}.MessageAttribute.1.Value.DataType"), "String".into()),
             (format!("{key}.MessageAttribute.1.Value.StringValue"), "playback_session".into()),
@@ -343,7 +350,7 @@ impl Reports {
         let journal = self.journal();
         json!({"upstream_supported": true, "pending": list_at(&journal.state, "outbox").len(), "local_history": true,
             "delivered": journal.state.get("delivered").cloned().unwrap_or(json!(0)), "last_error": journal.error,
-            "requires_playback_positions": true})
+            "requires_playback_positions": true, "minimum_played_ms": MIN_REPORT_MS})
     }
 }
 
@@ -388,6 +395,27 @@ fn checkpoint(play: &mut Value, params: &Value, played: i64) -> Result<()> {
 mod tests {
     use super::*;
 
+    fn fixture() -> (tempfile::TempDir, Arc<Client>, Reports) {
+        let folder = tempfile::tempdir().unwrap();
+        let client = Arc::new(Client::new(folder.path()));
+        let claims = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(r#"{"uid":5,"cid":123,"sid":"original-session"}"#);
+        client.session().account = json!({"user_id": "5", "access_token": format!("fixture.{claims}.signature"), "expires": now() + 3600.0});
+        let reports = Reports::new(folder.path(), client.clone());
+        (folder, client, reports)
+    }
+
+    fn started(reports: &Reports, playback: &str) {
+        let ticket = reports.ticket(json!({"ref": "track:9", "title": "Song"}), json!({"quality": "LOSSLESS"})).unwrap();
+        reports.event(&json!({"kind": "started", "playback_id": playback, "resolution_id": ticket, "started_at": 100, "position_ms": 0})).unwrap();
+    }
+
+    fn ended(reports: &Reports, playback: &str, played: i64) -> Value {
+        let params = json!({"kind": "ended", "playback_id": playback, "sequence": 1, "played_ms": played,
+            "position_ms": played, "observed_at_ms": 100000 + played});
+        reports.event(&params).unwrap();
+        params
+    }
+
     #[test]
     fn contiguous_checkpoints_extend_one_interval() {
         let mut play = json!({"played_ms": 0, "spans": []});
@@ -400,9 +428,90 @@ mod tests {
     #[test]
     fn a_standalone_play_is_attributed_to_its_track() {
         let entry = json!({"id": "e", "play": {"track": {"ref": "track:9@playlist:x"}, "extra": {}, "spans": [{"start": 0, "end": 1500, "at": 10, "until": 1510}]}});
-        let body = event_body(&entry);
+        let body = event_body(&entry, &json!({}));
         assert_eq!(body["payload"]["sourceType"], "ITEM");
         assert_eq!(body["payload"]["sourceId"], "9");
         assert_eq!(body["payload"]["endAssetPosition"], 1.5);
+    }
+
+    #[test]
+    fn preload_short_skips_and_legacy_positions_do_not_report_a_listen() {
+        let (_folder, _client, reports) = fixture();
+        reports.ticket(json!({"ref": "track:9"}), json!({})).unwrap();
+        assert!(reports.history(100).is_empty());
+        assert_eq!(reports.status()["pending"], 0);
+        started(&reports, "short");
+        ended(&reports, "short", 29999);
+        assert_eq!(reports.status()["pending"], 0);
+        started(&reports, "old-host");
+        reports.event(&json!({"kind": "ended", "playback_id": "old-host", "sequence": 1, "played_ms": 100000})).unwrap();
+        assert_eq!(reports.status()["pending"], 0);
+    }
+
+    #[test]
+    fn duplicate_end_is_idempotent_but_replaying_has_a_new_event() {
+        let (_folder, _client, reports) = fixture();
+        started(&reports, "first");
+        let terminal = ended(&reports, "first", 30000);
+        reports.event(&terminal).unwrap();
+        assert_eq!(reports.status()["pending"], 1);
+        started(&reports, "replay");
+        ended(&reports, "replay", 30000);
+        let journal = reports.journal();
+        let outbox = list_at(&journal.state, "outbox");
+        assert_eq!(outbox.len(), 2);
+        assert_ne!(outbox[0]["id"], outbox[1]["id"]);
+    }
+
+    #[test]
+    fn retry_and_restart_keep_the_original_body_without_persisting_bearer_tokens() {
+        let (folder, client, reports) = fixture();
+        started(&reports, "first");
+        ended(&reports, "first", 31000);
+        let mut entry = reports.journal().state["outbox"][0].clone();
+        reports.prepare(&mut entry).unwrap();
+        let body = entry["body"].clone();
+        client.session().account["access_token"] = json!("opaque-new-token");
+        let restarted = Reports::new(folder.path(), client);
+        let mut recovered = restarted.journal().state["outbox"][0].clone();
+        restarted.prepare(&mut recovered).unwrap();
+        assert_eq!(recovered["id"], entry["id"]);
+        assert_eq!(recovered["body"], body);
+        assert_eq!(body["user"]["sessionId"], "original-session");
+        let disk = std::fs::read_to_string(folder.path().join("history.json")).unwrap();
+        assert!(!disk.contains("signature"));
+        assert!(!disk.contains("opaque-new-token"));
+    }
+
+    #[test]
+    fn account_switch_discards_the_previous_accounts_outbox_without_http() {
+        let (_folder, client, reports) = fixture();
+        started(&reports, "first");
+        ended(&reports, "first", 30000);
+        client.session().account["user_id"] = json!("6");
+        reports.flush();
+        assert_eq!(reports.status()["pending"], 0);
+        assert_eq!(reports.status()["delivered"], 0);
+        assert_eq!(reports.journal().state["discarded"], 1);
+    }
+
+    #[test]
+    fn seeking_and_pauses_count_only_measured_intervals_towards_the_threshold() {
+        let (_folder, _client, reports) = fixture();
+        started(&reports, "seek");
+        for params in [json!({"sequence": 1, "played_ms": 10000, "position_ms": 10000, "observed_at_ms": 110000}),
+            json!({"sequence": 2, "played_ms": 10000, "position_ms": 180000, "observed_at_ms": 140000}),
+            json!({"sequence": 3, "played_ms": 30000, "position_ms": 200000, "observed_at_ms": 160000})] {
+            let mut params = params;
+            params["kind"] = json!(if params["sequence"] == 3 { "ended" } else { "progress" });
+            params["playback_id"] = json!("seek");
+            reports.event(&params).unwrap();
+        }
+        let journal = reports.journal();
+        let spans = list_at(&journal.state["outbox"][0]["play"], "spans");
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[1]["start"], 180000);
+        drop(journal);
+        assert_eq!(reports.status()["minimum_played_ms"], 30000);
     }
 }

@@ -22,7 +22,7 @@ with tempfile.TemporaryDirectory(prefix="chilpa-tidal-smoke-") as temporary:
     data.mkdir()
     cache.mkdir()
     if args.direct:
-        command = [str(folder / "plugin"), "--data-dir", str(data)]
+        command = [str(folder / "plugin")]
     else:
         command = ["/usr/bin/bwrap", "--unshare-all", "--share-net", "--die-with-parent", "--new-session", "--cap-drop", "ALL",
             "--ro-bind", "/usr", "/usr", "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64", "--symlink", "usr/bin", "/bin",
@@ -54,7 +54,9 @@ with tempfile.TemporaryDirectory(prefix="chilpa-tidal-smoke-") as temporary:
         return answer
 
     try:
-        initialized = call("initialize", {"locale": "es", "playback_events": 1})["result"]
+        # The folders as the host names them: the real paths, or the sandbox's mounts.
+        folders = {"data_dir": str(data), "cache_dir": str(cache)} if args.direct else {"data_dir": "/data", "cache_dir": "/cache"}
+        initialized = call("initialize", {"locale": "es", "playback_events": 1, **folders})["result"]
         latency = time.monotonic() - started
         assert initialized["capabilities"]["pages"] and initialized["capabilities"]["playlist_edit"]
         assert not call("auth.status")["result"]["signed_in"]

@@ -142,7 +142,7 @@ impl Account {
             for (quality, name) in QUALITIES {
                 actions.push(json!({"key": format!("quality_{quality}"), "label": format!("{}{name}", if chosen == quality { "• " } else { "" }), "fields": []}));
             }
-            actions.push(json!({"key": "sign_out", "label": tr(locale, "Sign out"), "fields": []}));
+            actions.push(json!({"key": "sign_out", "label": tr(locale, "Sign out"), "fields": [], "destructive": "account"}));
         } else {
             let expired = match &wizard.pending {
                 Some(Pending::Browser { expires, .. }) | Some(Pending::Device { expires, .. }) => Instant::now() >= *expires,
@@ -174,7 +174,7 @@ impl Account {
                     // host opens the browser and the person pastes the address.
                     links.push(json!({"label": tr(locale, "Open Tidal sign-in"), "url": url, "primary": true,
                         "capture": {"until": REDIRECT, "action": "finish", "field": "redirect_url"}}));
-                    fields.push(json!({"key": "redirect_url", "label": tr(locale, "Address of the page Tidal shows at the end"),
+                    fields.push(json!({"key": "redirect_url", "label": tr(locale, "Only if Tidal opened in your browser: the address of the page it shows at the end"),
                         "required": true, "description": "", "control": {"type": "text", "max_length": 8192}}));
                     values["redirect_url"] = json!(wizard.address);
                     actions.push(json!({"key": "finish", "label": tr(locale, "Finish sign-in"), "fields": ["redirect_url"]}));
@@ -194,7 +194,18 @@ impl Account {
                 }
             }
         }
-        json!({"revision": wizard.revision, "wizard": {"step": done + 1, "total": 2, "id": identity, "waiting": identity == "device"},
+        let title = match identity {
+            "done" => "Tidal is connected",
+            "device" => "Sign in with a code",
+            _ => "Sign in to Tidal",
+        };
+        let steps: Vec<Value> = [("Sign in", done > 0), ("Ready", done > 0)].iter().enumerate()
+            .map(|(index, (name, complete))| {
+                let state = if *complete { "complete" } else if index == 0 { "current" } else { "upcoming" };
+                json!({"label": tr(locale, name), "state": state})
+            }).collect();
+        json!({"revision": wizard.revision, "wizard": {"step": done + 1, "total": 2, "id": identity, "waiting": identity == "device",
+            "title": tr(locale, title), "steps": steps},
             "progress": {"done": done, "total": 2}, "status": {"phase": phase, "label": label, "description": description},
             "form": {"fields": fields, "actions": actions, "unsupported": []}, "values": values,
             "content": content, "links": links, "notices": notices})
@@ -382,6 +393,12 @@ mod tests {
         assert_eq!(page["form"]["fields"][0]["key"], "redirect_url");
         assert_eq!(page["form"]["fields"][0]["control"]["type"], "text");
         assert_eq!(page["content"].as_array().unwrap().len(), 3);
+        assert_eq!(page["wizard"]["title"], "Sign in to Tidal");
+        assert_eq!(page["wizard"]["steps"], json!([{"label": "Sign in", "state": "current"}, {"label": "Ready", "state": "upcoming"}]));
+        assert!(page["form"]["fields"][0]["label"].as_str().unwrap().starts_with("Only if Tidal opened in your browser"));
+        let spanish = account.open("es-MX");
+        assert_eq!(spanish["wizard"]["title"], "Inicia sesión en Tidal");
+        assert_eq!(spanish["wizard"]["steps"][1]["label"], "Listo");
         let stale = account.submit(&json!({"revision": 1, "action": "finish", "values": {"redirect_url": "x"}}), "en");
         assert!(stale["notices"][0].as_str().unwrap().contains("Refresh"));
         let revision = stale["revision"].clone();

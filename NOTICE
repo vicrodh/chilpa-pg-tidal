@@ -7,6 +7,12 @@ Reference implementations inspected:
   playlist collection shape, index-based editing and ETag requirements.
 - python-tidal (tidalapi) 0.8.11, Thomas Amland and contributors: the public
   PKCE and device application identities and the token requests.
+- SONE, lullabyX/sone (GPL-3.0-only), commit
+  a4accb7ee5fe3b33b8cb75f6a645e462ff3303da: playback event account/client
+  attribution, playback origins, the 30-second reporting threshold, provider
+  AI labels, structured primary artist roles, unified favorite IDs and playlist
+  recommendations. The protocol adapter and measured playback accounting are
+  implemented independently here.
 
 Media decoding: Symphonia FLAC decoder (symphonia-bundle-flac and
 symphonia-core 0.5, MPL-2.0). No provider code is added to the Chilpa host.

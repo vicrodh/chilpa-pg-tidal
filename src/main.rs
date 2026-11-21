@@ -3,7 +3,7 @@
 use serde_json::{json, Value};
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
-use std::sync::{mpsc, Arc, Condvar, Mutex};
+use std::sync::{mpsc, Arc, Condvar, Mutex, OnceLock};
 use tidal_plugin::service::Service;
 
 const WORKERS: usize = 8;
@@ -30,18 +30,57 @@ impl Slots {
     }
 }
 
-fn data_dir() -> PathBuf {
-    let mut arguments = std::env::args().skip(1);
-    while let Some(argument) = arguments.next() {
-        if argument == "--data-dir" {
-            if let Some(path) = arguments.next() {
-                return PathBuf::from(path);
-            }
-        } else if let Some(path) = argument.strip_prefix("--data-dir=") {
-            return PathBuf::from(path);
+/// The data folder the host names: `data_dir` in `initialize`, else the
+/// environment's `CHILPA_PLUGIN_DATA_DIR`. A missing or relative folder is an
+/// error; no default is substituted. `cache_dir` is checked the same way.
+fn folders(params: &Value) -> Result<PathBuf, String> {
+    let folder = |key: &str, variable: &str| {
+        let named = match params.get(key) {
+            None | Some(Value::Null) => std::env::var_os(variable).map(PathBuf::from),
+            Some(found) => found.as_str().map(PathBuf::from),
+        };
+        named.filter(|path| path.is_absolute())
+            .ok_or_else(|| format!("initialize did not name an absolute {key}, and {variable} is not set to one"))
+    };
+    folder("cache_dir", "CHILPA_PLUGIN_CACHE_DIR")?;
+    folder("data_dir", "CHILPA_PLUGIN_DATA_DIR")
+}
+
+fn reply_error(output: &Mutex<std::io::Stdout>, message: &Value, code: i64, text: &str) {
+    if let Some(id) = message.get("id") {
+        let line = json!({"jsonrpc": "2.0", "id": id, "error": {"code": code, "message": text}});
+        let mut stdout = output.lock().unwrap();
+        let _ = writeln!(stdout, "{line}");
+        let _ = stdout.flush();
+    }
+}
+
+/// Opens storage in the folders `initialize` names, then answers it. It runs
+/// on the reading thread, so no later request starts before storage exists.
+fn initialize(started: &OnceLock<(PathBuf, Service)>, output: &Mutex<std::io::Stdout>, message: &Value) {
+    let params = message.get("params").cloned().unwrap_or(Value::Null);
+    let opened = folders(&params).and_then(|data| {
+        if let Some((open, service)) = started.get() {
+            return if *open == data { Ok(service) } else { Err(format!("its storage is already open in {}", open.display())) };
+        }
+        let service = Service::new(&data).map_err(|error| format!("{} could not be opened: {error}", data.display()))?;
+        Ok(&started.get_or_init(|| (data, service)).1)
+    });
+    match opened {
+        Ok(service) => call(service, output, message),
+        Err(reason) => {
+            eprintln!("The plugin could not start: {reason}");
+            reply_error(output, message, -32602, &format!("The plugin could not start: {reason}"));
         }
     }
-    std::env::var_os("CHILPA_PLUGIN_DATA_DIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/data"))
+}
+
+/// Every other request needs the storage `initialize` opened.
+fn dispatch(started: &OnceLock<(PathBuf, Service)>, output: &Mutex<std::io::Stdout>, message: &Value) {
+    match started.get() {
+        Some((_, service)) => call(service, output, message),
+        None => reply_error(output, message, -32002, "The plugin has not been initialized."),
+    }
 }
 
 fn call(service: &Service, output: &Mutex<std::io::Stdout>, message: &Value) {
@@ -75,23 +114,17 @@ fn call(service: &Service, output: &Mutex<std::io::Stdout>, message: &Value) {
 }
 
 fn main() {
-    let service = match Service::new(&data_dir()) {
-        Ok(service) => Arc::new(service),
-        Err(error) => {
-            eprintln!("The plugin could not start: {error}");
-            std::process::exit(1);
-        }
-    };
+    let started = Arc::new(OnceLock::<(PathBuf, Service)>::new());
     let output = Arc::new(Mutex::new(std::io::stdout()));
     let slots = Arc::new(Slots { used: Mutex::new(0), freed: Condvar::new() });
     let (sender, receiver) = mpsc::channel::<Value>();
     let receiver = Arc::new(Mutex::new(receiver));
     let workers: Vec<_> = (0..WORKERS).map(|index| {
-        let (service, output, slots, receiver) = (service.clone(), output.clone(), slots.clone(), receiver.clone());
+        let (started, output, slots, receiver) = (started.clone(), output.clone(), slots.clone(), receiver.clone());
         std::thread::Builder::new().name(format!("rpc-{index}")).spawn(move || loop {
             let next = receiver.lock().unwrap().recv();
             let Ok(message) = next else { return };
-            call(&service, &output, &message);
+            dispatch(&started, &output, &message);
             slots.release();
         }).expect("worker threads start")
     }).collect();
@@ -111,10 +144,15 @@ fn main() {
         if !message.is_object() {
             continue;
         }
+        let method = message.get("method").and_then(Value::as_str);
+        if method == Some("initialize") {
+            initialize(&started, &output, &message);
+            continue;
+        }
         slots.acquire();
         // Playback events keep their order: they run as they arrive.
-        if message.get("method").and_then(Value::as_str) == Some("playback.event") {
-            call(&service, &output, &message);
+        if method == Some("playback.event") {
+            dispatch(&started, &output, &message);
             slots.release();
         } else if sender.send(message).is_err() {
             slots.release();
@@ -125,5 +163,7 @@ fn main() {
     for worker in workers {
         let _ = worker.join();
     }
-    service.close();
+    if let Some((_, service)) = started.get() {
+        service.close();
+    }
 }

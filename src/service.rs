@@ -4,6 +4,7 @@ use crate::account::Account;
 use crate::catalog::Catalog;
 use crate::client::Client;
 use crate::credits::Credits;
+use crate::favorites::Favorites;
 use crate::items::card;
 use crate::json::{at, str_at, text};
 use crate::links::link_target;
@@ -23,6 +24,7 @@ pub struct Service {
     catalog: Arc<Catalog>,
     playlists: Playlists,
     reports: Arc<Reports>,
+    favorites: Favorites,
     streams: Streams,
     locale: Mutex<String>,
     gate: RwLock<()>,
@@ -38,9 +40,10 @@ impl Service {
         let catalog = Arc::new(Catalog::new(client.clone(), cache.clone(), Some(credits)));
         let playlists = Playlists::new(client.clone(), catalog.clone());
         let reports = Arc::new(Reports::new(data, client.clone()));
+        let favorites = Favorites::new(client.clone());
         let streams = Streams::new(client.clone(), account.clone())?;
         reports.start();
-        Ok(Service { client, cache, account, catalog, playlists, reports, streams, locale: Mutex::new("en".into()), gate: RwLock::new(()) })
+        Ok(Service { client, cache, account, catalog, playlists, reports, favorites, streams, locale: Mutex::new("en".into()), gate: RwLock::new(()) })
     }
 
     pub fn handle(&self, method: &str, params: &Value) -> Result<Value> {
@@ -65,10 +68,11 @@ impl Service {
             "initialize" => {
                 let locale = match at(params, "locale") { Value::Null => "en".to_string(), other => text(other) };
                 self.catalog.set_locale(&locale.replace('-', "_"));
+                self.catalog.set_subtabs(at(at(params, "features"), "page_subtabs").as_u64() == Some(1));
                 *self.locale.lock().unwrap() = locale;
                 return Ok(json!({"protocol": 1, "capabilities": {"auth": "browser", "home": true,
                     "navigation": {"discover": "Music", "library": "Collection", "albums": "Albums"},
-                    "library": ["albums", "tracks", "artists", "playlists"], "pages": true,
+                    "library": ["albums", "tracks", "artists", "playlists"], "pages": true, "genre_discovery": 1,
                     "playlist_edit": true, "track_quality": true, "search": true, "scene_search_limit": 1000,
                     "resolve": true, "favorites": true, "playback_events": 1, "track_lyrics": 1}}));
             }
@@ -77,6 +81,7 @@ impl Service {
             "settings.submit" => {
                 let answer = self.account.submit(params, &self.locale());
                 self.cache.clear();
+                self.favorites.clear();
                 if self.client.user().is_empty() {
                     self.streams.clear();
                     self.reports.clear();
@@ -89,6 +94,7 @@ impl Service {
                 self.cache.clear();
                 self.streams.clear();
                 self.reports.clear();
+                self.favorites.clear();
                 return Ok(json!({"signed_in": false}));
             }
             "inspect" => return Ok(json!({"settings_pages": ["account"]})),
@@ -99,7 +105,7 @@ impl Service {
             _ => {}
         }
         self.client.token()?;
-        match method {
+        let mut result = match method {
             "home" => self.catalog.discover("discover:home"),
             "page.get" => {
                 let mut result = self.catalog.page(params)?;
@@ -119,9 +125,9 @@ impl Service {
             "artist.get" => self.catalog.artist(params),
             "playlist.get" => self.catalog.playlist(params),
             "track.get" => self.catalog.track(params),
-            "track.quality" => self.catalog.track_quality(params, &self.account.quality()),
-            "track.lyrics" => track_lyrics(&self.catalog, params),
-            "track.resolve" => self.resolve(params),
+            "track.quality" => return self.catalog.track_quality(params, &self.account.quality()),
+            "track.lyrics" => return track_lyrics(&self.catalog, params),
+            "track.resolve" => return self.resolve(params),
             "page.action" | "favorites.set" => {
                 let mut params = params.clone();
                 if method == "favorites.set" {
@@ -130,11 +136,24 @@ impl Service {
                 let result = self.playlists.action(&params);
                 if str_at(&params, "action") != "playlist.search" {
                     self.cache.clear();
+                    if str_at(&params, "action") == "favorite" && result.is_ok() {
+                        self.favorites.changed(str_at(&params, "ref"), at(&params, "on") == &json!(true));
+                    } else {
+                        self.favorites.clear();
+                    }
                 }
-                result
+                return result;
             }
             _ => Err(Failure::new("Unknown plugin operation.").code(-32601)),
+        }?;
+        if at(params, "refresh") == true {
+            self.favorites.clear();
         }
+        self.favorites.decorate(&mut result);
+        if method == "library.list" {
+            crate::favorites::listed(&mut result, match at(params, "kind") { Value::Null => "albums", other => other.as_str().unwrap_or_default() });
+        }
+        Ok(result)
     }
 
     fn resolve(&self, params: &Value) -> Result<Value> {
@@ -148,12 +167,9 @@ impl Service {
             result["normalization"] = normalization(&json!({}), &raw);
         }
         let mut reporting = result.as_object_mut().and_then(|fields| fields.shift_remove("reporting")).unwrap_or_else(|| json!({}));
-        for context in reference.split('@').skip(1) {
-            if let Some(playlist) = context.strip_prefix("playlist:").filter(|playlist| !playlist.is_empty()) {
-                reporting["source_type"] = json!("PLAYLIST");
-                reporting["source_id"] = json!(playlist);
-                break;
-            }
+        if let Some((kind, id)) = crate::reporting::source(reference) {
+            reporting["source_type"] = json!(kind);
+            reporting["source_id"] = json!(id);
         }
         result["resolution_id"] = json!(self.reports.ticket(track, reporting)?);
         Ok(result)
